@@ -1,0 +1,12 @@
+# Asset Credits
+
+## Placeholder Assets
+All placeholder assets created for game jam development.
+
+## Final Assets
+[Art team: Add credits for final assets here]
+
+Format:
+- Asset name: Source/Creator
+- License: CC0 / CC-BY / Custom
+- URL: [if applicable]

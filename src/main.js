@@ -1,24 +1,35 @@
-import './style.css'
-import javascriptLogo from './javascript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.js'
+// SANCTUARY - Main Entry Point
+import './styles.css';
+import { GAME_CONFIG } from './core/constants.js';
 
-document.querySelector('#app').innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-      <img src="${javascriptLogo}" class="logo vanilla" alt="JavaScript logo" />
-    </a>
-    <h1>Hello Vite!</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite logo to learn more
-    </p>
-  </div>
-`
+// Game will be initialized here
+console.log('SANCTUARY - Initializing...');
+console.log('Version:', GAME_CONFIG.VERSION);
 
-setupCounter(document.querySelector('#counter'))
+// Basic navigation for Stage 0 verification
+document.addEventListener('DOMContentLoaded', () => {
+  initNavigation();
+});
+
+function initNavigation() {
+  const navButtons = document.querySelectorAll('.nav-button');
+  const screens = document.querySelectorAll('.screen');
+
+  navButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const targetScreen = button.dataset.screen;
+
+      // Update nav buttons
+      navButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+
+      // Update screens
+      screens.forEach(screen => {
+        screen.classList.remove('active');
+        if (screen.id === `screen-${targetScreen}`) {
+          screen.classList.add('active');
+        }
+      });
+    });
+  });
+}

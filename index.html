@@ -3,11 +3,107 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rare-plumage-jam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>SANCTUARY</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Roboto+Mono:wght@400&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Header -->
+      <header id="header">
+        <h1 class="game-title">SANCTUARY</h1>
+        <div class="seeds-display">
+          <span class="seeds-icon">🌾</span>
+          <span class="seeds-amount" id="seeds-amount">100</span>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <main id="main-content">
+        <!-- Wilds Screen -->
+        <section id="screen-wilds" class="screen active">
+          <h2 class="screen-title">The Wilds</h2>
+
+          <div class="section-container">
+            <h3 class="section-header">Foragers</h3>
+            <div id="foragers-container" class="slots-container">
+              <!-- Forager slots will be generated here -->
+            </div>
+          </div>
+
+          <div class="section-container">
+            <h3 class="section-header">Field Surveys</h3>
+            <div id="surveys-container" class="surveys-grid">
+              <!-- Survey items will be generated here -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Sanctuary Screen -->
+        <section id="screen-sanctuary" class="screen">
+          <h2 class="screen-title">The Sanctuary</h2>
+
+          <div class="section-container">
+            <h3 class="section-header">Distinguished Guests</h3>
+            <div id="bonuses-display" class="bonuses-display">
+              <!-- Active bonuses will display here -->
+            </div>
+          </div>
+
+          <div class="section-container">
+            <h3 class="section-header">Perches</h3>
+            <div id="perches-container" class="slots-container">
+              <!-- Perch slots will be generated here -->
+            </div>
+          </div>
+
+          <div class="section-container">
+            <h3 class="section-header">Collection</h3>
+            <div id="collection-container" class="collection-list">
+              <!-- Collection birds will be listed here -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Hatchery Screen -->
+        <section id="screen-hatchery" class="screen">
+          <h2 class="screen-title">The Hatchery</h2>
+
+          <div class="section-container">
+            <h3 class="section-header">Breeding Programs</h3>
+            <div id="breeding-programs-container" class="breeding-programs">
+              <!-- Breeding program slots will be generated here -->
+            </div>
+          </div>
+
+          <div class="section-container">
+            <h3 class="section-header">Mature Specimens</h3>
+            <div id="mature-birds-container" class="mature-birds-list">
+              <!-- Mature birds available for breeding -->
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Navigation -->
+      <nav id="navigation">
+        <button class="nav-button active" data-screen="wilds">Wilds</button>
+        <button class="nav-button" data-screen="sanctuary">Sanctuary</button>
+        <button class="nav-button" data-screen="hatchery">Hatchery</button>
+      </nav>
+
+      <!-- Modal Container -->
+      <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="modal-content" class="modal-content">
+          <!-- Dynamic modal content -->
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
