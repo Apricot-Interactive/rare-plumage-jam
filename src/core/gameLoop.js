@@ -1,12 +1,88 @@
 // SANCTUARY - Game Loop
-// Stage 1: Will implement 60fps game loop
+import { GAME_CONFIG } from './constants.js';
+import { gameState, addSeeds } from './state.js';
+import { calculateForagerIncome } from '../systems/foragers.js';
+
+let lastFrameTime = Date.now();
+let gameLoopId = null;
+let uiLoopId = null;
 
 export function startGameLoop() {
-  // TODO: Implement in Stage 1
-  console.log('Game loop placeholder');
+  if (gameLoopId) return; // Already running
+
+  console.log('Starting game loop at 60fps');
+
+  function loop() {
+    const now = Date.now();
+    const deltaTime = now - lastFrameTime;
+    lastFrameTime = now;
+
+    // Update game systems
+    updateGameSystems(deltaTime);
+
+    // Schedule next frame
+    gameLoopId = requestAnimationFrame(loop);
+  }
+
+  loop();
 }
 
 export function startUILoop() {
-  // TODO: Implement in Stage 1
-  console.log('UI loop placeholder');
+  if (uiLoopId) return; // Already running
+
+  console.log('Starting UI loop at 10fps');
+
+  const interval = 1000 / GAME_CONFIG.UI_LOOP_FPS;
+
+  function updateUI() {
+    if (!gameState) return;
+
+    // Update UI displays
+    updateSeedsDisplay();
+    updateForagersDisplay();
+
+    // Schedule next update
+    uiLoopId = setTimeout(updateUI, interval);
+  }
+
+  updateUI();
+}
+
+function updateGameSystems(deltaTime) {
+  if (!gameState) return;
+
+  // Calculate and accumulate forager income
+  const income = calculateForagerIncome();
+  if (income > 0) {
+    const seedsEarned = income * (deltaTime / 1000);
+    addSeeds(seedsEarned);
+  }
+
+  // Future: Update vitality, surveys, breeding, etc.
+}
+
+function updateSeedsDisplay() {
+  const seedsElement = document.getElementById('seeds-amount');
+  if (seedsElement && gameState) {
+    seedsElement.textContent = Math.floor(gameState.seeds).toLocaleString();
+  }
+}
+
+function updateForagersDisplay() {
+  // Will be implemented with forager UI
+  // Placeholder for now
+}
+
+export function stopGameLoop() {
+  if (gameLoopId) {
+    cancelAnimationFrame(gameLoopId);
+    gameLoopId = null;
+  }
+}
+
+export function stopUILoop() {
+  if (uiLoopId) {
+    clearTimeout(uiLoopId);
+    uiLoopId = null;
+  }
 }

@@ -186,8 +186,10 @@ body {
 /* === SLOTS CONTAINER === */
 .slots-container {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
+  flex-direction: row;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding: var(--space-md) 0;
 }
 
 .slot {
@@ -661,4 +663,172 @@ button.danger {
   0%, 20% { content: "."; }
   40% { content: ".."; }
   60%, 100% { content: "..."; }
+}
+
+/* === FORAGER CIRCLES === */
+.forager-circle-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.forager-circle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.forager-circle:hover {
+  transform: scale(1.05);
+}
+
+.forager-circle:active {
+  transform: scale(0.95);
+}
+
+/* Vitality Ring (SVG) */
+.vitality-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.vitality-ring-bg {
+  fill: none;
+  stroke: var(--bg-accent);
+  stroke-width: 4;
+}
+
+.vitality-ring-fill {
+  fill: none;
+  stroke: #66BB6A;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Circle Content */
+.circle-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.forager-circle.locked .circle-content {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.forager-circle.empty .circle-content {
+  border-style: dashed;
+  border-color: var(--border-light);
+}
+
+.forager-circle.active .circle-content {
+  border-color: var(--info);
+}
+
+/* Icons and Sprites */
+.lock-icon {
+  font-size: 32px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  opacity: 0.5;
+}
+
+.bird-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Forager Label */
+.forager-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.forager-label:hover {
+  border-color: var(--info);
+  background: var(--info);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.forager-label:active {
+  transform: translateY(0);
+}
+
+.forager-circle.locked + .forager-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: default;
+  border-style: dashed;
+}
+
+.forager-circle.locked + .forager-label:hover {
+  border-color: var(--border-light);
+  background: var(--bg-accent);
+  color: var(--text-muted);
+  transform: none;
+}
+
+/* Floating Income */
+.floating-income {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--currency);
+  font-weight: bold;
+  font-size: 18px;
+  font-family: var(--font-mono);
+  pointer-events: none;
+  animation: floatUpIncome 1s ease-out forwards;
+  z-index: 100;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes floatUpIncome {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%);
+  }
 }
