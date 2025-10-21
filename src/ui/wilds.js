@@ -26,14 +26,20 @@ export function updateForagerVitalityUI() {
     const bird = getBirdById(forager.birdId);
     if (!bird) return;
 
-    // Update vitality ring
+    // Update vitality and maturity rings
     const wrapper = document.querySelector(`.forager-circle-wrapper[data-slot="${forager.slot}"]`);
     if (!wrapper) return;
 
-    const ringFill = wrapper.querySelector('.vitality-ring-fill');
-    if (ringFill) {
+    const vitalityRingFill = wrapper.querySelector('.vitality-ring-fill');
+    if (vitalityRingFill) {
       const vitalityPercent = bird.vitalityPercent;
-      ringFill.style.strokeDashoffset = `${283 - (283 * vitalityPercent / 100)}`;
+      vitalityRingFill.style.strokeDashoffset = `${264 - (264 * vitalityPercent / 100)}`;
+    }
+
+    const maturityRingFill = wrapper.querySelector('.maturity-ring-fill');
+    if (maturityRingFill) {
+      const maturityPercent = bird.isMature ? 100 : 0;
+      maturityRingFill.style.strokeDashoffset = `${239 - (239 * maturityPercent / 100)}`;
     }
   });
 }
@@ -127,13 +133,21 @@ function createForagerCircle(forager) {
   } else {
     // Assigned bird - tap for Seeds, label to reassign
     const vitalityPercent = bird.vitalityPercent;
+    const maturityPercent = bird.isMature ? 100 : 0;
     const tapReward = [10, 100, 1000][forager.slot];
     wrapper.innerHTML = `
       <div class="forager-circle active" data-slot="${forager.slot}">
-        <svg class="vitality-ring" viewBox="0 0 100 100">
-          <circle class="vitality-ring-bg" cx="50" cy="50" r="45" />
-          <circle class="vitality-ring-fill" cx="50" cy="50" r="45"
-                  style="stroke-dashoffset: ${283 - (283 * vitalityPercent / 100)}" />
+        <svg class="bird-rings" viewBox="0 0 100 100">
+          <!-- Maturity Ring (innermost, blue) -->
+          <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+          <circle class="maturity-ring-fill" cx="50" cy="50" r="38"
+                  style="stroke-dashoffset: ${239 - (239 * maturityPercent / 100)}" />
+          <!-- Vitality Ring (middle, green) -->
+          <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
+          <circle class="vitality-ring-fill" cx="50" cy="50" r="42"
+                  style="stroke-dashoffset: ${264 - (264 * vitalityPercent / 100)}" />
+          <!-- Frame Ring (outermost) -->
+          <circle class="frame-ring" cx="50" cy="50" r="46" />
         </svg>
         <div class="circle-content">
           <img src="/assets/birds/bird-${bird.distinction}star.png" alt="${bird.speciesName}" class="bird-sprite" />
@@ -266,14 +280,23 @@ function showBirdSelector(slot) {
     availableBirds.forEach(({ bird }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
-      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      const maturityPercent = bird.isMature ? 100 : 0;
+      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn" data-bird-id="${bird.id}">
           <div class="btn-bird-icon-wrapper">
-            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
-              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="btn-vitality-ring-fill" cx="50" cy="50" r="45"
-                      style="stroke-dashoffset: ${strokeOffset}" />
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Maturity Ring (innermost, blue) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+              <circle class="maturity-ring-fill" cx="50" cy="50" r="27"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Vitality Ring (middle, green) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+              <circle class="vitality-ring-fill" cx="50" cy="50" r="30"
+                      style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+              <!-- Frame Ring (outermost) -->
+              <circle class="frame-ring" cx="50" cy="50" r="33" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
           </div>
@@ -291,14 +314,23 @@ function showBirdSelector(slot) {
     unavailableBirds.forEach(({ bird, locationLabel }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
-      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      const maturityPercent = bird.isMature ? 100 : 0;
+      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="${locationLabel}">
           <div class="btn-bird-icon-wrapper">
-            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
-              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="btn-vitality-ring-fill greyed" cx="50" cy="50" r="45"
-                      style="stroke-dashoffset: ${strokeOffset}" />
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Maturity Ring (innermost, blue) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+              <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="27"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Vitality Ring (middle, green) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+              <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="30"
+                      style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+              <!-- Frame Ring (outermost) -->
+              <circle class="frame-ring greyed" cx="50" cy="50" r="33" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
           </div>
@@ -460,14 +492,21 @@ function createSurveyItem(survey) {
   // Build biome circle content
   let biomeCircleHTML = '';
   if (assistant) {
-    // Show bird with vitality ring instead of biome icon
+    // Show bird with 3-ring system
     const vitalityPercent = assistant.vitalityPercent;
-    const strokeOffset = 283 - (283 * vitalityPercent / 100);
+    const maturityPercent = assistant.isMature ? 100 : 0;
     biomeCircleHTML = `
-      <svg class="biome-vitality-ring" viewBox="0 0 100 100">
-        <circle class="biome-vitality-ring-bg" cx="50" cy="50" r="45" />
-        <circle class="biome-vitality-ring-fill" cx="50" cy="50" r="45"
-                style="stroke-dashoffset: ${strokeOffset}" />
+      <svg class="bird-rings" viewBox="0 0 100 100">
+        <!-- Maturity Ring (innermost, blue) -->
+        <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+        <circle class="maturity-ring-fill" cx="50" cy="50" r="38"
+                style="stroke-dashoffset: ${239 - (239 * maturityPercent / 100)}" />
+        <!-- Vitality Ring (middle, green) -->
+        <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
+        <circle class="vitality-ring-fill" cx="50" cy="50" r="42"
+                style="stroke-dashoffset: ${264 - (264 * vitalityPercent / 100)}" />
+        <!-- Frame Ring (outermost) -->
+        <circle class="frame-ring" cx="50" cy="50" r="46" />
       </svg>
       <img src="/assets/birds/bird-${assistant.distinction}star.png" alt="${assistant.speciesName}" class="biome-bird-icon" />
     `;

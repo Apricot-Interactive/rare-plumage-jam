@@ -205,13 +205,30 @@ function showBirdSelectionModal() {
           ${matureBirds.map(bird => {
             const isAvailable = bird.location === 'collection';
             const isAssigned = !isAvailable;
+            const vitalityPercent = bird.vitalityPercent;
+            const maturityPercent = bird.isMature ? 100 : 0;
+            const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+            const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
             return `
               <div class="bird-selection-item ${isAssigned ? 'assigned' : ''}" data-bird-id="${bird.id}">
+                <div class="btn-bird-icon-wrapper">
+                  <svg class="bird-rings" viewBox="0 0 100 100">
+                    <!-- Maturity Ring (innermost, blue) -->
+                    <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+                    <circle class="maturity-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="27"
+                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
+                    <!-- Vitality Ring (middle, green) -->
+                    <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+                    <circle class="vitality-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="30"
+                            style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+                    <!-- Frame Ring (outermost) -->
+                    <circle class="frame-ring ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="33" />
+                  </svg>
+                  <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon ${isAssigned ? 'greyed' : ''}" />
+                </div>
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
-                </div>
-                <div class="bird-location-info">
                   ${isAssigned ? `<span class="location-label">Assigned: ${formatLocation(bird.location)}</span>` : ''}
                 </div>
               </div>
@@ -223,13 +240,30 @@ function showBirdSelectionModal() {
         <div class="bird-selection-section">
           <h4 class="section-label">Immature Birds</h4>
           ${immatureBirds.map(bird => {
+            const vitalityPercent = bird.vitalityPercent;
+            const maturityPercent = bird.isMature ? 100 : 0;
+            const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+            const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
             return `
               <div class="bird-selection-item immature" data-bird-id="${bird.id}">
+                <div class="btn-bird-icon-wrapper">
+                  <svg class="bird-rings" viewBox="0 0 100 100">
+                    <!-- Maturity Ring (innermost, blue) -->
+                    <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+                    <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="27"
+                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
+                    <!-- Vitality Ring (middle, green) -->
+                    <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+                    <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="30"
+                            style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+                    <!-- Frame Ring (outermost) -->
+                    <circle class="frame-ring greyed" cx="50" cy="50" r="33" />
+                  </svg>
+                  <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+                </div>
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
-                </div>
-                <div class="bird-location-info">
                   <span class="immature-label">Not mature</span>
                 </div>
               </div>

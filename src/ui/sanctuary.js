@@ -75,13 +75,24 @@ function createPerchSlot(perch) {
     const cooldownSeconds = Math.ceil(perch.restoreCooldown / 1000);
     const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
 
+    const maturityPercent = bird.isMature ? 100 : 0;
+    const vitalityStrokeOffset = 377 - (377 * bird.vitalityPercent / 100);
+    const maturityStrokeOffset = 327 - (327 * maturityPercent / 100);
+
     wrapper.innerHTML = `
       <div class="perch-card-top">
         <div class="perch-vitality-ring-wrapper">
-          <svg class="perch-vitality-ring" viewBox="0 0 100 100">
-            <circle class="perch-vitality-ring-bg" cx="50" cy="50" r="45" />
-            <circle class="perch-vitality-ring-fill" cx="50" cy="50" r="45"
-                    style="stroke-dashoffset: ${283 - (283 * bird.vitalityPercent / 100)}" />
+          <svg class="bird-rings" viewBox="0 0 100 100">
+            <!-- Maturity Ring (innermost, blue) -->
+            <circle class="maturity-ring-bg" cx="50" cy="50" r="52" />
+            <circle class="maturity-ring-fill" cx="50" cy="50" r="52"
+                    style="stroke-dashoffset: ${maturityStrokeOffset}" />
+            <!-- Vitality Ring (middle, green) -->
+            <circle class="vitality-ring-bg" cx="50" cy="50" r="60" />
+            <circle class="vitality-ring-fill" cx="50" cy="50" r="60"
+                    style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+            <!-- Frame Ring (outermost) -->
+            <circle class="frame-ring" cx="50" cy="50" r="68" />
           </svg>
           <img src="/assets/birds/bird-${bird.distinction}star.png" alt="${bird.speciesName}" class="perch-bird-image" />
         </div>
@@ -177,14 +188,23 @@ function showBirdSelector(slot) {
     availableBirds.forEach(({ bird }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
-      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      const maturityPercent = bird.isMature ? 100 : 0;
+      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn" data-bird-id="${bird.id}">
           <div class="btn-bird-icon-wrapper">
-            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
-              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="btn-vitality-ring-fill" cx="50" cy="50" r="45"
-                      style="stroke-dashoffset: ${strokeOffset}" />
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Maturity Ring (innermost, blue) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+              <circle class="maturity-ring-fill" cx="50" cy="50" r="27"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Vitality Ring (middle, green) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+              <circle class="vitality-ring-fill" cx="50" cy="50" r="30"
+                      style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+              <!-- Frame Ring (outermost) -->
+              <circle class="frame-ring" cx="50" cy="50" r="33" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
           </div>
@@ -202,14 +222,23 @@ function showBirdSelector(slot) {
     unavailableBirds.forEach(({ bird, locationLabel }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
-      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      const maturityPercent = bird.isMature ? 100 : 0;
+      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
+      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="${locationLabel}">
           <div class="btn-bird-icon-wrapper">
-            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
-              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="btn-vitality-ring-fill greyed" cx="50" cy="50" r="45"
-                      style="stroke-dashoffset: ${strokeOffset}" />
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Maturity Ring (innermost, blue) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
+              <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="27"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Vitality Ring (middle, green) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
+              <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="30"
+                      style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+              <!-- Frame Ring (outermost) -->
+              <circle class="frame-ring greyed" cx="50" cy="50" r="33" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
           </div>
@@ -357,15 +386,24 @@ function createCollectionItem(bird) {
 
   const maturityLabel = bird.isMature ? '✓ Mature' : '○ Immature';
   const vitalityPercent = bird.vitalityPercent;
-  const strokeOffset = 283 - (283 * vitalityPercent / 100);
+  const maturityPercent = bird.isMature ? 100 : 0;
+  const vitalityStrokeOffset = 264 - (264 * vitalityPercent / 100);
+  const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
 
   item.innerHTML = `
     <div class="collection-bird-info">
       <div class="collection-bird-icon-wrapper">
-        <svg class="collection-vitality-ring" viewBox="0 0 100 100">
-          <circle class="collection-vitality-ring-bg" cx="50" cy="50" r="45" />
-          <circle class="collection-vitality-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="45"
-                  style="stroke-dashoffset: ${strokeOffset}" />
+        <svg class="bird-rings" viewBox="0 0 100 100">
+          <!-- Maturity Ring (innermost, blue) -->
+          <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+          <circle class="maturity-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="38"
+                  style="stroke-dashoffset: ${maturityStrokeOffset}" />
+          <!-- Vitality Ring (middle, green) -->
+          <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
+          <circle class="vitality-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="42"
+                  style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+          <!-- Frame Ring (outermost) -->
+          <circle class="frame-ring" cx="50" cy="50" r="46" />
         </svg>
         <img src="/assets/birds/bird-${bird.distinction}star.png" class="collection-bird-icon ${!isAvailable ? 'greyed' : ''}" />
       </div>
@@ -376,7 +414,7 @@ function createCollectionItem(bird) {
       </div>
     </div>
     <div class="collection-actions">
-      ${!bird.isMature && isAvailable ? `<button class="mature-btn" data-bird-id="${bird.id}">Mature (100 🌾)</button>` : ''}
+      ${!bird.isMature && isAvailable ? `<button class="mature-btn" data-bird-id="${bird.id}">Mature (100 🫘)</button>` : ''}
     </div>
   `;
 

@@ -155,7 +155,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding: 0 var(--space-md);
+  height: 36px;
   background-color: var(--bg-accent);
   border-radius: 20px;
   border: 1px solid var(--currency);
@@ -492,8 +493,8 @@ button.danger {
 /* Biome Circle */
 .biome-circle {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: var(--bg-accent);
   border: 2px solid var(--border-light);
@@ -526,8 +527,8 @@ button.danger {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   z-index: 1;
 }
@@ -1189,8 +1190,8 @@ button.danger {
   transform: scale(0.95);
 }
 
-/* Vitality Ring (SVG) */
-.vitality-ring {
+/* Bird Rings (SVG) - 3-ring system */
+.bird-rings {
   position: absolute;
   top: 0;
   left: 0;
@@ -1200,20 +1201,56 @@ button.danger {
   pointer-events: none;
 }
 
+/* Maturity Ring (innermost, blue) */
+.maturity-ring-bg {
+  fill: none;
+  stroke: var(--bg-accent);
+  stroke-width: 3;
+}
+
+.maturity-ring-fill {
+  fill: none;
+  stroke: var(--info);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 239;
+  stroke-dashoffset: 239;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Vitality Ring (middle, green) */
 .vitality-ring-bg {
   fill: none;
   stroke: var(--bg-accent);
-  stroke-width: 4;
+  stroke-width: 3;
 }
 
 .vitality-ring-fill {
   fill: none;
   stroke: #66BB6A;
-  stroke-width: 4;
+  stroke-width: 3;
   stroke-linecap: round;
-  stroke-dasharray: 283;
+  stroke-dasharray: 264;
   stroke-dashoffset: 0;
   transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Frame Ring (outermost) */
+.frame-ring {
+  fill: none;
+  stroke: var(--border-light);
+  stroke-width: 2;
+}
+
+/* Legacy vitality-ring for compatibility */
+.vitality-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
 }
 
 /* Circle Content */
@@ -1567,8 +1604,8 @@ button.danger {
 
 .collection-bird-icon-wrapper {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
 }
 
@@ -1604,8 +1641,8 @@ button.danger {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 36px;
-  height: 36px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
 }
 
@@ -2019,7 +2056,7 @@ button.danger {
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
-  justify-content: space-between;
+  gap: var(--space-md);
   align-items: center;
 }
 
@@ -2049,8 +2086,10 @@ button.danger {
 
 .bird-info {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
 }
 
 .bird-info .bird-name {
