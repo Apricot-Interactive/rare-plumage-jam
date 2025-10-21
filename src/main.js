@@ -24,6 +24,7 @@ function init() {
   initSanctuaryUI();
   initHatcheryUI();
   initSettings();
+  initOrientationLock();
 
   // Start game loops
   startGameLoop();
@@ -145,4 +146,23 @@ function showResetConfirmation() {
   content.querySelector('#cancel-reset-btn').addEventListener('click', () => {
     showSettingsModal();
   });
+}
+
+function initOrientationLock() {
+  const overlay = document.getElementById('orientation-overlay');
+
+  function checkOrientation() {
+    const isMobile = window.innerWidth <= 768;
+    const isLandscape = window.innerWidth > window.innerHeight;
+
+    if (isMobile && isLandscape) {
+      overlay.classList.remove('hidden');
+    } else {
+      overlay.classList.add('hidden');
+    }
+  }
+
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', checkOrientation);
+  checkOrientation();
 }

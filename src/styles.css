@@ -106,8 +106,24 @@ body {
   width: 100%;
   max-width: 375px;
   height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile browsers */
   margin: 0 auto;
   background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  position: relative;
+}
+
+/* Responsive Layout: Full width on mobile, centered container on larger screens */
+@media (max-width: 768px) {
+  #app {
+    max-width: 100%;
+    width: 100vw;
+  }
+}
+
+@media (min-width: 769px) {
+  #app {
+    max-width: 375px;
+  }
 }
 
 /* === HEADER === */
@@ -388,6 +404,7 @@ button.danger {
   height: var(--nav-height);
   background-color: var(--bg-secondary);
   border-top: 2px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom); /* iOS safe area for bottom nav */
 }
 
 .nav-button {
@@ -609,6 +626,63 @@ button.danger {
 
 .modal-overlay.hidden {
   display: none;
+}
+
+/* === ORIENTATION OVERLAY (MOBILE ONLY) === */
+.orientation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-primary);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Show overlay only on mobile devices in landscape mode */
+@media (max-width: 768px) and (orientation: landscape) {
+  .orientation-overlay:not(.hidden) {
+    display: flex;
+  }
+}
+
+/* Never show on desktop/tablet */
+@media (min-width: 769px) {
+  .orientation-overlay {
+    display: none !important;
+  }
+}
+
+.orientation-content {
+  padding: var(--space-xl);
+}
+
+.rotate-icon {
+  font-size: 64px;
+  margin-bottom: var(--space-lg);
+  animation: rotatePhone 2s ease-in-out infinite;
+}
+
+.orientation-content p {
+  font-size: 18px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+@keyframes rotatePhone {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-15deg);
+  }
+  75% {
+    transform: rotate(15deg);
+  }
 }
 
 .modal-content {
