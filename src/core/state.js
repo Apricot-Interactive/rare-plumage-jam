@@ -37,11 +37,11 @@ function createDefaultState() {
 
     // Perches (5 slots)
     perches: [
-      { slot: 0, birdId: null, unlocked: true, unlockCost: 0, groomingStartedAt: null, lastImmediateRestoreAt: null },
-      { slot: 1, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[1], groomingStartedAt: null, lastImmediateRestoreAt: null },
-      { slot: 2, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[2], groomingStartedAt: null, lastImmediateRestoreAt: null },
-      { slot: 3, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[3], groomingStartedAt: null, lastImmediateRestoreAt: null },
-      { slot: 4, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[4], groomingStartedAt: null, lastImmediateRestoreAt: null }
+      { slot: 0, birdId: null, unlocked: true, unlockCost: 0, assignedAt: null, restoreCooldown: 0 },
+      { slot: 1, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[1], assignedAt: null, restoreCooldown: 0 },
+      { slot: 2, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[2], assignedAt: null, restoreCooldown: 0 },
+      { slot: 3, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[3], assignedAt: null, restoreCooldown: 0 },
+      { slot: 4, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[4], assignedAt: null, restoreCooldown: 0 }
     ],
 
     // Breeding Programs (3 slots)
@@ -155,4 +155,19 @@ export function spendSeeds(amount) {
   if (gameState.seeds < amount) return false;
   gameState.seeds -= amount;
   return true;
+}
+
+// Reset game state to default
+export function resetGameState() {
+  // Clear localStorage
+  localStorage.removeItem(STORAGE_KEYS.GAME_STATE);
+
+  // Create fresh default state
+  gameState = createDefaultState();
+
+  // Save the new state
+  saveGame();
+
+  console.log('Game state reset to default');
+  return gameState;
 }

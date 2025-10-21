@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>SANCTUARY</title>
+    <title>Rare Plumage</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Roboto+Mono:wght@400&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
@@ -15,10 +15,13 @@
     <div id="app">
       <!-- Header -->
       <header id="header">
-        <h1 class="game-title">SANCTUARY</h1>
-        <div class="seeds-display">
-          <span class="seeds-icon">🌾</span>
-          <span class="seeds-amount" id="seeds-amount">100</span>
+        <h1 class="game-title">Rare Plumage</h1>
+        <div class="header-right">
+          <div class="seeds-display">
+            <span class="seeds-icon">🌾</span>
+            <span class="seeds-amount" id="seeds-amount">100</span>
+          </div>
+          <button id="settings-btn" class="settings-btn" aria-label="Settings">⚙️</button>
         </div>
       </header>
 
@@ -52,11 +55,7 @@
             <div id="bonuses-display" class="bonuses-display">
               <!-- Active bonuses will display here -->
             </div>
-          </div>
-
-          <div class="section-container">
-            <h3 class="section-header">Perches</h3>
-            <div id="perches-container" class="slots-container">
+            <div id="perches-container" class="perches-grid">
               <!-- Perch slots will be generated here -->
             </div>
           </div>
@@ -80,11 +79,8 @@
             </div>
           </div>
 
-          <div class="section-container">
-            <h3 class="section-header">Mature Specimens</h3>
-            <div id="mature-birds-container" class="mature-birds-list">
-              <!-- Mature birds available for breeding -->
-            </div>
+          <div id="mature-birds-container" style="display: none;">
+            <!-- Hidden - birds selected via modal -->
           </div>
         </section>
       </main>

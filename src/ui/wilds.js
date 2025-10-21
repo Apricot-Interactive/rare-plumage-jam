@@ -1,15 +1,56 @@
 // SANCTUARY - Wilds UI
 import { gameState, getBirdById, addSeeds } from '../core/state.js';
 import { assignForager, unassignForager, unlockForagerSlot, tapForagerSlot } from '../systems/foragers.js';
-import { RARITY, FORAGER_INCOME } from '../core/constants.js';
+import { observeSurvey, assignAssistant, unassignAssistant } from '../systems/surveys.js';
+import { RARITY, FORAGER_INCOME, TRAITS } from '../core/constants.js';
+import { updateSanctuaryUI } from './sanctuary.js';
 
 export function initWildsUI() {
   renderForagers();
-  // renderSurveys(); // Stage 2
+  renderSurveys();
 }
 
+// Full re-render (only call when assignments change)
 export function updateWildsUI() {
   renderForagers();
+  renderSurveys();
+}
+
+// Selective updates for real-time changes
+export function updateForagerVitalityUI() {
+  if (!gameState) return;
+
+  gameState.foragers.forEach(forager => {
+    if (!forager.birdId) return;
+
+    const bird = getBirdById(forager.birdId);
+    if (!bird) return;
+
+    // Update vitality ring
+    const wrapper = document.querySelector(`.forager-circle-wrapper[data-slot="${forager.slot}"]`);
+    if (!wrapper) return;
+
+    const ringFill = wrapper.querySelector('.vitality-ring-fill');
+    if (ringFill) {
+      const vitalityPercent = bird.vitalityPercent;
+      ringFill.style.strokeDashoffset = `${283 - (283 * vitalityPercent / 100)}`;
+    }
+  });
+}
+
+export function updateSurveyProgressUI() {
+  if (!gameState) return;
+
+  gameState.surveys.forEach(survey => {
+    const surveyItem = document.querySelector(`.survey-item[data-survey-id="${survey.id}"]`);
+    if (!surveyItem) return;
+
+    const progressFill = surveyItem.querySelector('.progress-bar-fill');
+    if (progressFill) {
+      const progressPercent = Math.floor(survey.progress);
+      progressFill.style.width = `${progressPercent}%`;
+    }
+  });
 }
 
 // Track last income display time for each forager
@@ -173,8 +214,29 @@ function showBirdSelector(slot) {
   const forager = gameState.foragers.find(f => f.slot === slot);
   const currentBird = forager?.birdId ? getBirdById(forager.birdId) : null;
 
-  // Get available birds from collection
-  const availableBirds = gameState.specimens.filter(b => b.location === 'collection');
+  // Get ALL birds and categorize them (excluding the current bird in this slot)
+  const allBirds = gameState.specimens
+    .filter(bird => bird.id !== currentBird?.id) // Don't show current bird in the list
+    .map(bird => {
+      const isAvailable = bird.location === 'collection';
+      let locationLabel = '';
+
+      if (!isAvailable) {
+        if (bird.location.startsWith('forager_')) {
+          const foragerSlot = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Foraging (Slot ${foragerSlot + 1})`;
+        } else if (bird.location.startsWith('perch_')) {
+          const perchSlot = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Perch ${perchSlot + 1}`;
+        } else if (bird.location.startsWith('assistant_')) {
+          const biomeId = bird.location.split('_')[1];
+          const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+          locationLabel = `${biomeName} Assistant`;
+        }
+      }
+
+      return { bird, isAvailable, locationLabel };
+    });
 
   // Create modal
   const modal = document.getElementById('modal-overlay');
@@ -185,43 +247,78 @@ function showBirdSelector(slot) {
   // Add "Unassign" option if there's a bird assigned
   if (currentBird) {
     optionsHTML += `
-      <button class="bird-select-btn unassign-option" data-action="unassign" style="padding: 12px; text-align: left; background: var(--bg-secondary); border: 2px solid var(--error); border-radius: 4px; cursor: pointer; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 24px;">✖️</div>
-          <div>
-            <div style="font-weight: 500; color: var(--error);">Unassign</div>
-            <div style="font-size: 12px; color: var(--text-secondary);">Remove bird from this position</div>
-          </div>
-        </div>
+      <button class="bird-select-btn unassign-option" data-action="unassign">
+        <span class="btn-icon">✖️</span>
+        <span class="btn-content">
+          <span class="btn-title">Unassign</span>
+          <span class="btn-subtitle">Return to collection</span>
+        </span>
       </button>
     `;
   }
 
-  // Add available birds
+  // Add all birds (available first, then unavailable)
+  const availableBirds = allBirds.filter(b => b.isAvailable);
+  const unavailableBirds = allBirds.filter(b => !b.isAvailable);
+
   if (availableBirds.length > 0) {
-    optionsHTML += `
-      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Available Birds</div>
-      ${availableBirds.map(bird => `
-        <button class="bird-select-btn" data-bird-id="${bird.id}" style="padding: 12px; text-align: left; background: var(--bg-accent); border: 1px solid var(--border-light); border-radius: 4px; cursor: pointer; margin-bottom: 4px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <img src="/assets/birds/bird-${bird.distinction}star.png" style="width: 32px; height: 32px;" />
-            <div>
-              <div style="font-weight: 500;">${bird.customDesignation || bird.speciesName}</div>
-              <div style="font-size: 12px; color: var(--text-secondary);">${RARITY[bird.distinction].stars} - ${getForagerIncome(bird)} Seeds/sec</div>
-            </div>
+    optionsHTML += `<div class="section-label">Available Birds</div>`;
+    availableBirds.forEach(({ bird }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      const vitalityPercent = bird.vitalityPercent;
+      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      optionsHTML += `
+        <button class="bird-select-btn" data-bird-id="${bird.id}">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
+              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
+              <circle class="btn-vitality-ring-fill" cx="50" cy="50" r="45"
+                      style="stroke-dashoffset: ${strokeOffset}" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
           </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${getForagerIncome(bird)} Seeds/sec</span>
+          </span>
         </button>
-      `).join('')}
-    `;
-  } else if (!currentBird) {
-    optionsHTML += `
-      <p style="text-align: center; color: var(--text-muted); padding: 20px;">No birds available in collection</p>
-    `;
+      `;
+    });
+  }
+
+  if (unavailableBirds.length > 0) {
+    optionsHTML += `<div class="section-label">In Use</div>`;
+    unavailableBirds.forEach(({ bird, locationLabel }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      const vitalityPercent = bird.vitalityPercent;
+      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      optionsHTML += `
+        <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="${locationLabel}">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
+              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
+              <circle class="btn-vitality-ring-fill greyed" cx="50" cy="50" r="45"
+                      style="stroke-dashoffset: ${strokeOffset}" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+          </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${getForagerIncome(bird)} Seeds/sec</span>
+            <span class="btn-location">${locationLabel}</span>
+          </span>
+        </button>
+      `;
+    });
+  }
+
+  if (allBirds.length === 0 && !currentBird) {
+    optionsHTML += `<p class="empty-message">No birds available</p>`;
   }
 
   content.innerHTML = `
     <h3>Forager Position ${slot + 1}</h3>
-    <div class="bird-selection-grid" style="display: grid; grid-template-columns: 1fr; gap: 0; margin: 16px 0;">
+    <div class="bird-selection-grid">
       ${optionsHTML}
     </div>
     <div class="modal-actions">
@@ -236,19 +333,28 @@ function showBirdSelector(slot) {
   if (unassignBtn) {
     unassignBtn.addEventListener('click', () => {
       if (unassignForager(slot)) {
-        renderForagers();
+        updateWildsUI();
         modal.classList.add('hidden');
       }
     });
   }
 
-  // Handle bird selection
+  // Handle bird selection (both available and unavailable)
   content.querySelectorAll('[data-bird-id]').forEach(btn => {
     btn.addEventListener('click', () => {
       const birdId = btn.dataset.birdId;
-      if (assignForager(slot, birdId)) {
-        renderForagers();
-        modal.classList.add('hidden');
+      const location = btn.dataset.location;
+
+      // If bird is unavailable, show confirmation dialog
+      if (location) {
+        showForagerReassignmentConfirmation(slot, birdId, location, modal);
+      } else {
+        // Available bird - assign directly
+        if (assignForager(slot, birdId)) {
+          updateWildsUI();
+          updateSanctuaryUI(); // Also update sanctuary in case bird was moved from there
+          modal.classList.add('hidden');
+        }
       }
     });
   });
@@ -256,6 +362,39 @@ function showBirdSelector(slot) {
   // Handle cancel
   content.querySelector('#cancel-btn').addEventListener('click', () => {
     modal.classList.add('hidden');
+  });
+}
+
+function showForagerReassignmentConfirmation(targetSlot, birdId, currentLocation, parentModal) {
+  const bird = getBirdById(birdId);
+  if (!bird) return;
+
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <h3>Reassign Bird?</h3>
+    <div class="confirmation-message">
+      <p><strong>${bird.customDesignation || bird.speciesName}</strong> is currently at <strong>${currentLocation}</strong>.</p>
+      <p>Do you want to reassign it to <strong>Forager Position ${targetSlot + 1}</strong>?</p>
+    </div>
+    <div class="modal-actions">
+      <button id="confirm-reassign-btn" class="primary-btn">Yes, Reassign</button>
+      <button id="cancel-reassign-btn">Cancel</button>
+    </div>
+  `;
+
+  // Handle confirm
+  content.querySelector('#confirm-reassign-btn').addEventListener('click', () => {
+    if (assignForager(targetSlot, birdId)) {
+      updateWildsUI();
+      updateSanctuaryUI(); // Also update sanctuary in case bird was moved from there
+      parentModal.classList.add('hidden');
+    }
+  });
+
+  // Handle cancel - go back to bird selector
+  content.querySelector('#cancel-reassign-btn').addEventListener('click', () => {
+    showBirdSelector(targetSlot);
   });
 }
 
@@ -298,5 +437,273 @@ style.textContent = `
 document.head.appendChild(style);
 
 export function renderSurveys() {
-  // TODO: Implement in Stage 2
+  const container = document.getElementById('surveys-container');
+  if (!container || !gameState) return;
+
+  container.innerHTML = '';
+
+  gameState.surveys.forEach(survey => {
+    const surveyEl = createSurveyItem(survey);
+    container.appendChild(surveyEl);
+  });
+}
+
+function createSurveyItem(survey) {
+  const item = document.createElement('div');
+  item.className = 'survey-item';
+  item.dataset.surveyId = survey.id;
+
+  const assistant = survey.assistantId ? getBirdById(survey.assistantId) : null;
+  const biomeName = survey.biome.charAt(0).toUpperCase() + survey.biome.slice(1);
+  const progressPercent = Math.floor(survey.progress);
+
+  // Build biome circle content
+  let biomeCircleHTML = '';
+  if (assistant) {
+    // Show bird with vitality ring instead of biome icon
+    const vitalityPercent = assistant.vitalityPercent;
+    const strokeOffset = 283 - (283 * vitalityPercent / 100);
+    biomeCircleHTML = `
+      <svg class="biome-vitality-ring" viewBox="0 0 100 100">
+        <circle class="biome-vitality-ring-bg" cx="50" cy="50" r="45" />
+        <circle class="biome-vitality-ring-fill" cx="50" cy="50" r="45"
+                style="stroke-dashoffset: ${strokeOffset}" />
+      </svg>
+      <img src="/assets/birds/bird-${assistant.distinction}star.png" alt="${assistant.speciesName}" class="biome-bird-icon" />
+    `;
+  } else {
+    // Show biome icon
+    biomeCircleHTML = `<img src="/assets/biomes/${survey.biome}.png" alt="${biomeName}" class="biome-icon" />`;
+  }
+
+  item.innerHTML = `
+    <div class="survey-layout">
+      <div class="biome-circle" data-biome="${survey.id}">
+        ${biomeCircleHTML}
+      </div>
+      <div class="survey-info">
+        <div class="biome-label">${biomeName}</div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
+        </div>
+        <div class="assistant-button" data-biome="${survey.id}">
+          ${assistant ? (assistant.customDesignation || assistant.speciesName) : 'Assign Assistant'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Biome circle tap for observation
+  const biomeCircle = item.querySelector('.biome-circle');
+  biomeCircle.addEventListener('click', () => {
+    if (observeSurvey(survey.id)) {
+      renderSurveys();
+    }
+  });
+
+  // Assistant button for assignment
+  const assignBtn = item.querySelector('.assistant-button');
+  assignBtn.addEventListener('click', () => {
+    showAssistantSelector(survey.id);
+  });
+
+  return item;
+}
+
+function showAssistantSelector(biomeId) {
+  if (!gameState) return;
+
+  const survey = gameState.surveys.find(s => s.id === biomeId);
+  const currentAssistant = survey?.assistantId ? getBirdById(survey.assistantId) : null;
+
+  // Get ALL birds and categorize them (excluding the current bird in this slot)
+  const allBirds = gameState.specimens
+    .filter(bird => bird.id !== currentAssistant?.id) // Don't show current bird in the list
+    .map(bird => {
+      const isAvailable = bird.location === 'collection';
+      let locationLabel = '';
+
+      if (!isAvailable) {
+        if (bird.location.startsWith('forager_')) {
+          const foragerSlot = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Foraging (Slot ${foragerSlot + 1})`;
+        } else if (bird.location.startsWith('perch_')) {
+          const perchSlot = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Perch ${perchSlot + 1}`;
+        } else if (bird.location.startsWith('assistant_')) {
+          const assistantBiomeId = bird.location.split('_')[1];
+          const assistantBiomeName = assistantBiomeId.charAt(0).toUpperCase() + assistantBiomeId.slice(1);
+          locationLabel = `${assistantBiomeName} Assistant`;
+        }
+      }
+
+      return { bird, isAvailable, locationLabel };
+    });
+
+  // Create modal
+  const modal = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  let optionsHTML = '';
+
+  // Add "Unassign" option if there's an assistant assigned
+  if (currentAssistant) {
+    optionsHTML += `
+      <button class="bird-select-btn unassign-option" data-action="unassign">
+        <span class="btn-icon">✖️</span>
+        <span class="btn-content">
+          <span class="btn-title">Unassign</span>
+          <span class="btn-subtitle">Return to collection</span>
+        </span>
+      </button>
+    `;
+  }
+
+  // Add all birds (available first, then unavailable)
+  const availableBirds = allBirds.filter(b => b.isAvailable);
+  const unavailableBirds = allBirds.filter(b => !b.isAvailable);
+
+  if (availableBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Available Birds</div>`;
+    availableBirds.forEach(({ bird }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      const vitalityPercent = bird.vitalityPercent;
+      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      optionsHTML += `
+        <button class="bird-select-btn" data-bird-id="${bird.id}">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
+              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
+              <circle class="btn-vitality-ring-fill" cx="50" cy="50" r="45"
+                      style="stroke-dashoffset: ${strokeOffset}" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
+          </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${getObservationRate(bird)} obs/sec</span>
+          </span>
+        </button>
+      `;
+    });
+  }
+
+  if (unavailableBirds.length > 0) {
+    optionsHTML += `<div class="section-label">In Use</div>`;
+    unavailableBirds.forEach(({ bird, locationLabel }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      const vitalityPercent = bird.vitalityPercent;
+      const strokeOffset = 283 - (283 * vitalityPercent / 100);
+      optionsHTML += `
+        <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="${locationLabel}">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="btn-vitality-ring" viewBox="0 0 100 100">
+              <circle class="btn-vitality-ring-bg" cx="50" cy="50" r="45" />
+              <circle class="btn-vitality-ring-fill greyed" cx="50" cy="50" r="45"
+                      style="stroke-dashoffset: ${strokeOffset}" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+          </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${getObservationRate(bird)} obs/sec</span>
+            <span class="btn-location">${locationLabel}</span>
+          </span>
+        </button>
+      `;
+    });
+  }
+
+  if (allBirds.length === 0 && !currentAssistant) {
+    optionsHTML += `<p class="empty-message">No birds available</p>`;
+  }
+
+  const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+  content.innerHTML = `
+    <h3>${biomeName} Survey</h3>
+    <div class="bird-selection-grid">
+      ${optionsHTML}
+    </div>
+    <div class="modal-actions">
+      <button id="cancel-btn">Cancel</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+
+  // Handle unassign
+  const unassignBtn = content.querySelector('[data-action="unassign"]');
+  if (unassignBtn) {
+    unassignBtn.addEventListener('click', () => {
+      if (unassignAssistant(biomeId)) {
+        updateWildsUI();
+        modal.classList.add('hidden');
+      }
+    });
+  }
+
+  // Handle bird selection (both available and unavailable)
+  content.querySelectorAll('[data-bird-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const birdId = btn.dataset.birdId;
+      const location = btn.dataset.location;
+
+      // If bird is unavailable, show confirmation dialog
+      if (location) {
+        showAssistantReassignmentConfirmation(biomeId, birdId, location, modal);
+      } else {
+        // Available bird - assign directly
+        if (assignAssistant(biomeId, birdId)) {
+          updateWildsUI();
+          updateSanctuaryUI(); // Also update sanctuary in case bird was moved from there
+          modal.classList.add('hidden');
+        }
+      }
+    });
+  });
+
+  // Handle cancel
+  content.querySelector('#cancel-btn').addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+}
+
+function showAssistantReassignmentConfirmation(biomeId, birdId, currentLocation, parentModal) {
+  const bird = getBirdById(birdId);
+  if (!bird) return;
+
+  const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <h3>Reassign Bird?</h3>
+    <div class="confirmation-message">
+      <p><strong>${bird.customDesignation || bird.speciesName}</strong> is currently at <strong>${currentLocation}</strong>.</p>
+      <p>Do you want to reassign it to <strong>${biomeName} Survey</strong>?</p>
+    </div>
+    <div class="modal-actions">
+      <button id="confirm-reassign-btn" class="primary-btn">Yes, Reassign</button>
+      <button id="cancel-reassign-btn">Cancel</button>
+    </div>
+  `;
+
+  // Handle confirm
+  content.querySelector('#confirm-reassign-btn').addEventListener('click', () => {
+    if (assignAssistant(biomeId, birdId)) {
+      updateWildsUI();
+      updateSanctuaryUI(); // Also update sanctuary in case bird was moved from there
+      parentModal.classList.add('hidden');
+    }
+  });
+
+  // Handle cancel - go back to assistant selector
+  content.querySelector('#cancel-reassign-btn').addEventListener('click', () => {
+    showAssistantSelector(biomeId);
+  });
+}
+
+function getObservationRate(bird) {
+  const { ASSISTANT_TAP_RATE } = { ASSISTANT_TAP_RATE: { 1: 0.2, 2: 0.333, 3: 0.5, 4: 1.0, 5: 2.0 } };
+  const rate = ASSISTANT_TAP_RATE[bird.distinction] || 0;
+  return rate.toFixed(2);
 }

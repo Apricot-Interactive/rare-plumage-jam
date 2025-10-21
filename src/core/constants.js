@@ -63,7 +63,14 @@ export const TRAIT_COUNT = {
 };
 
 // === VITALITY SYSTEM ===
-export const VITALITY_DRAIN_RATE = 1.0;  // 1% per minute while working
+// Vitality drain rates by distinction (% per minute)
+export const VITALITY_DRAIN_RATE = {
+  1: 20,      // ⭐ 5 minutes to exhaust
+  2: 3.33,    // ⭐⭐ 30 minutes to exhaust
+  3: 0.833,   // ⭐⭐⭐ 2 hours to exhaust
+  4: 0.208,   // ⭐⭐⭐⭐ 8 hours to exhaust
+  5: 0.069    // ⭐⭐⭐⭐⭐ 24 hours to exhaust
+};
 export const VITALITY_RESTORE_RATE = 1.0; // 1% per minute while grooming
 export const IMMEDIATE_RESTORE_AMOUNT = 20; // +20% instant restore
 export const IMMEDIATE_RESTORE_COOLDOWN = 0.1; // Cooldown = 1/10th of groom time

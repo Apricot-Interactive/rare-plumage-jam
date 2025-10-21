@@ -1,6 +1,6 @@
 // SANCTUARY - Forager System
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { FORAGER_INCOME, MANUAL_TAP_SEEDS } from '../core/constants.js';
+import { FORAGER_INCOME, MANUAL_TAP_SEEDS, VITALITY_DRAIN_RATE } from '../core/constants.js';
 
 export function calculateForagerIncome() {
   if (!gameState) return 0;
@@ -27,7 +27,24 @@ export function calculateForagerIncome() {
 }
 
 export function updateForagerVitality(dt) {
-  // TODO: Implement in Stage 2
+  if (!gameState) return;
+
+  gameState.foragers.forEach(forager => {
+    if (!forager.birdId) return;
+
+    const bird = getBirdById(forager.birdId);
+    if (!bird) return;
+
+    // Only drain if bird has vitality remaining
+    if (bird.vitalityPercent > 0) {
+      // Get drain rate for this bird's distinction
+      const drainPerMinute = VITALITY_DRAIN_RATE[bird.distinction] || 1.0;
+      const drainPerMs = drainPerMinute / 60000; // Convert to per millisecond
+      const drainAmount = drainPerMs * dt;
+
+      bird.vitalityPercent = Math.max(0, bird.vitalityPercent - drainAmount);
+    }
+  });
 }
 
 export function assignForager(slot, birdId) {
@@ -40,15 +57,53 @@ export function assignForager(slot, birdId) {
   if (!bird) return false;
 
   // Unassign bird from current location
-  bird.location = `forager_${slot}`;
+  unassignBirdFromCurrentLocation(bird);
 
-  // Assign to forager
+  // Unassign any bird currently in this forager slot
+  if (forager.birdId) {
+    unassignForager(slot);
+  }
+
+  // Update bird location and assign to forager
+  bird.location = `forager_${slot}`;
   forager.birdId = birdId;
   forager.assignedAt = Date.now();
   forager.accumulatedSeeds = 0;
 
   console.log(`Assigned ${bird.speciesName} to Forager ${slot}`);
   return true;
+}
+
+// Helper function to unassign a bird from its current location
+export function unassignBirdFromCurrentLocation(bird) {
+  if (!bird || !bird.location) return;
+
+  // Parse location
+  if (bird.location.startsWith('forager_')) {
+    const slot = parseInt(bird.location.split('_')[1]);
+    const forager = gameState.foragers.find(f => f.slot === slot);
+    if (forager && forager.birdId === bird.id) {
+      forager.birdId = null;
+      forager.assignedAt = null;
+      forager.accumulatedSeeds = 0;
+    }
+  } else if (bird.location.startsWith('perch_')) {
+    const slot = parseInt(bird.location.split('_')[1]);
+    const perch = gameState.perches.find(p => p.slot === slot);
+    if (perch && perch.birdId === bird.id) {
+      perch.birdId = null;
+      perch.assignedAt = null;
+      perch.restoreCooldown = 0;
+    }
+  } else if (bird.location.startsWith('assistant_')) {
+    const biomeId = bird.location.split('_')[1];
+    const survey = gameState.surveys.find(s => s.id === biomeId);
+    if (survey && survey.assistantId === bird.id) {
+      survey.assistantId = null;
+      survey.lastUpdateTime = null;
+    }
+  }
+  // If location is 'collection', no cleanup needed
 }
 
 export function unassignForager(slot) {

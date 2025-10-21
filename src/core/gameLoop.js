@@ -1,7 +1,13 @@
 // SANCTUARY - Game Loop
 import { GAME_CONFIG } from './constants.js';
 import { gameState, addSeeds } from './state.js';
-import { calculateForagerIncome } from '../systems/foragers.js';
+import { calculateForagerIncome, updateForagerVitality } from '../systems/foragers.js';
+import { updateSurveyProgress } from '../systems/surveys.js';
+import { updateGrooming } from '../systems/sanctuary.js';
+import { updateBreedingProgress } from '../systems/breeding.js';
+import { updateForagerVitalityUI, updateSurveyProgressUI } from '../ui/wilds.js';
+import { updatePerchCooldowns } from '../ui/sanctuary.js';
+import { updateBreedingProgressBars } from '../ui/hatchery.js';
 
 let lastFrameTime = Date.now();
 let gameLoopId = null;
@@ -37,9 +43,12 @@ export function startUILoop() {
   function updateUI() {
     if (!gameState) return;
 
-    // Update UI displays
+    // Update only dynamic parts (no full re-render)
     updateSeedsDisplay();
-    updateForagersDisplay();
+    updateForagerVitalityUI();
+    updateSurveyProgressUI();
+    updatePerchCooldowns();
+    updateBreedingProgressBars();
 
     // Schedule next update
     uiLoopId = setTimeout(updateUI, interval);
@@ -51,6 +60,12 @@ export function startUILoop() {
 function updateGameSystems(deltaTime) {
   if (!gameState) return;
 
+  // Update vitality drain for foragers
+  updateForagerVitality(deltaTime);
+
+  // Update vitality restore for perches
+  updateGrooming(deltaTime);
+
   // Calculate and accumulate forager income
   const income = calculateForagerIncome();
   if (income > 0) {
@@ -58,7 +73,11 @@ function updateGameSystems(deltaTime) {
     addSeeds(seedsEarned);
   }
 
-  // Future: Update vitality, surveys, breeding, etc.
+  // Update survey progress (assistants auto-observe)
+  updateSurveyProgress(deltaTime);
+
+  // Update breeding incubation progress
+  updateBreedingProgress(deltaTime);
 }
 
 function updateSeedsDisplay() {
@@ -66,11 +85,6 @@ function updateSeedsDisplay() {
   if (seedsElement && gameState) {
     seedsElement.textContent = Math.floor(gameState.seeds).toLocaleString();
   }
-}
-
-function updateForagersDisplay() {
-  // Will be implemented with forager UI
-  // Placeholder for now
 }
 
 export function stopGameLoop() {

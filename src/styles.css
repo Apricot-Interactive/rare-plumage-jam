@@ -7,6 +7,35 @@
   box-sizing: border-box;
 }
 
+/* === iOS-STYLE SCROLLBARS === */
+/* Webkit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+  background-clip: padding-box;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 :root {
   /* Color Palette */
   --bg-primary: #1A1A2E;
@@ -94,10 +123,16 @@ body {
 
 .game-title {
   font-family: var(--font-header);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: var(--text-primary);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .seeds-display {
@@ -108,6 +143,28 @@ body {
   background-color: var(--bg-accent);
   border-radius: 20px;
   border: 1px solid var(--currency);
+}
+
+.settings-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.settings-btn:hover {
+  background-color: var(--bg-primary);
+  border-color: var(--text-secondary);
+  transform: rotate(45deg);
 }
 
 .seeds-icon {
@@ -408,29 +465,131 @@ button.danger {
   border-radius: 8px;
 }
 
-.survey-header {
+/* Survey Layout */
+.survey-layout {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-sm);
+  gap: var(--space-md);
 }
 
-.survey-header h4 {
-  font-size: 14px;
-  font-weight: 500;
-  text-transform: capitalize;
+/* Biome Circle */
+.biome-circle {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-accent);
+  border: 2px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  overflow: hidden;
 }
 
-.survey-cost {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--currency);
+.biome-circle:hover {
+  transform: scale(1.05);
+  border-color: var(--info);
 }
 
-.survey-progress {
+.biome-circle:active {
+  transform: scale(0.95);
+}
+
+.biome-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.biome-bird-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  z-index: 1;
+}
+
+.biome-vitality-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.biome-vitality-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 4;
+}
+
+.biome-vitality-ring-fill {
+  fill: none;
+  stroke: #66BB6A;
+  stroke-width: 4;
+  stroke-dasharray: 283;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Survey Info */
+.survey-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.biome-label {
   font-size: 12px;
   color: var(--text-secondary);
-  margin-top: var(--space-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.survey-info .progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: var(--bg-accent);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.assistant-button {
+  font-size: 12px;
+  padding: 6px 12px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+  color: var(--text-secondary);
+  align-self: flex-end;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.assistant-button:hover {
+  border-color: var(--info);
+  background: var(--info);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.assistant-button:active {
+  transform: translateY(0);
 }
 
 /* === MODALS === */
@@ -460,8 +619,20 @@ button.danger {
   max-width: 320px;
   width: 100%;
   max-height: 80vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   animation: modalSlideIn var(--transition-normal);
+}
+
+.modal-content h3 {
+  margin-bottom: var(--space-md);
+  flex-shrink: 0;
+}
+
+.modal-content .modal-actions {
+  flex-shrink: 0;
+  margin-top: var(--space-md);
 }
 
 @keyframes modalSlideIn {
@@ -497,6 +668,261 @@ button.danger {
 
 .modal-actions button {
   flex: 1;
+}
+
+/* === BIRD SELECTION BUTTONS === */
+.bird-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 4px;
+  text-align: left;
+  background: var(--bg-accent) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  transform: translateY(0);
+}
+
+.bird-select-btn:hover {
+  background: var(--info) !important;
+  border-color: var(--info) !important;
+  transform: translateY(-1px) !important;
+}
+
+.bird-select-btn.unassign-option {
+  background: var(--bg-secondary) !important;
+  border: 2px solid var(--error) !important;
+  margin-bottom: 12px;
+}
+
+.bird-select-btn.unassign-option:hover {
+  background: var(--error) !important;
+  border-color: var(--error) !important;
+}
+
+.bird-select-btn.unassign-option .btn-title {
+  color: var(--error);
+}
+
+.bird-select-btn.unassign-option:hover .btn-title {
+  color: var(--text-primary);
+}
+
+/* Unavailable bird styles */
+.bird-select-btn.unavailable {
+  opacity: 0.6;
+  background: var(--bg-secondary) !important;
+  border-color: var(--text-muted) !important;
+}
+
+.bird-select-btn.unavailable:hover {
+  opacity: 0.8;
+  background: var(--bg-accent) !important;
+  border-color: var(--warning) !important;
+}
+
+.btn-bird-icon.greyed {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+.btn-location {
+  display: block;
+  font-size: 11px;
+  color: var(--warning);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* Vitality ring in button selectors */
+.btn-bird-icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.btn-vitality-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.btn-vitality-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+}
+
+.btn-vitality-ring-fill {
+  fill: none;
+  stroke: #66BB6A;
+  stroke-width: 3;
+  stroke-dasharray: 283;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.btn-vitality-ring-fill.greyed {
+  stroke: #555;
+  opacity: 0.6;
+}
+
+.btn-bird-icon-wrapper .btn-bird-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.btn-bird-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.btn-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.btn-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.btn-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.section-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+/* Confirmation dialog */
+.confirmation-message {
+  padding: var(--space-md);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.confirmation-message p {
+  margin-bottom: var(--space-sm);
+}
+
+.primary-btn {
+  background-color: var(--info) !important;
+  color: var(--text-primary) !important;
+  font-weight: 500;
+}
+
+.primary-btn:hover {
+  background-color: #1976D2 !important;
+}
+
+.danger-btn {
+  background-color: var(--error) !important;
+  color: var(--text-primary) !important;
+  font-weight: 500;
+}
+
+.danger-btn:hover {
+  background-color: #D32F2F !important;
+}
+
+/* Settings options */
+.settings-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.settings-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.settings-option-btn:hover {
+  background: var(--bg-accent);
+  border-color: var(--error);
+  transform: translateY(-1px);
+}
+
+.option-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  gap: 2px;
+}
+
+.option-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.option-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.empty-message {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 14px;
+  font-style: italic;
 }
 
 /* === BONUSES DISPLAY === */
@@ -744,6 +1170,10 @@ button.danger {
 }
 
 .forager-circle.active .circle-content {
+  border-color: var(--border);
+}
+
+.forager-circle.active:hover .circle-content {
   border-color: var(--info);
 }
 
@@ -831,4 +1261,755 @@ button.danger {
     opacity: 0;
     transform: translate(-50%, -150%);
   }
+}
+
+/* === SANCTUARY (PERCHES & COLLECTION) === */
+.perches-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+  min-height: 500px;
+}
+
+/* Top row: 2 perches centered (each takes 2 columns with 1 column margins) */
+.perches-grid .perch-card:nth-child(1) {
+  grid-column: 1 / 4;
+}
+
+.perches-grid .perch-card:nth-child(2) {
+  grid-column: 4 / 7;
+}
+
+/* Bottom row: 3 perches (each takes 2 columns) */
+.perches-grid .perch-card:nth-child(3) {
+  grid-column: 1 / 3;
+}
+
+.perches-grid .perch-card:nth-child(4) {
+  grid-column: 3 / 5;
+}
+
+.perches-grid .perch-card:nth-child(5) {
+  grid-column: 5 / 7;
+}
+
+.perch-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  height: 100%;
+}
+
+.perch-card.locked {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.perch-card.locked:hover {
+  border-color: var(--border-light);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.perch-card.empty {
+  border-style: dashed;
+  border-color: var(--border-light);
+}
+
+.perch-card.empty:hover {
+  border-color: var(--info);
+  background-color: rgba(33, 150, 243, 0.05);
+}
+
+.perch-card.occupied {
+  border-color: var(--success);
+  cursor: default;
+}
+
+/* Perch Card Top (Image Area) */
+.perch-card-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  background-color: var(--bg-accent);
+  position: relative;
+  min-height: 180px;
+}
+
+.perch-lock-icon,
+.perch-empty-icon {
+  font-size: 64px;
+}
+
+/* Vitality Ring Wrapper */
+.perch-vitality-ring-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perch-vitality-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.perch-vitality-ring-bg {
+  fill: none;
+  stroke: var(--bg-primary);
+  stroke-width: 4;
+}
+
+.perch-vitality-ring-fill {
+  fill: none;
+  stroke: #66BB6A;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.perch-bird-image {
+  width: 100%;
+  max-width: 100px;
+  height: auto;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
+/* Perch Card Bottom (Info Area) */
+.perch-card-bottom {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  text-align: center;
+}
+
+.perch-unlock-cost {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.perch-empty-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.perch-bird-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perch-bird-rarity {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.perch-bird-traits {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 16px;
+}
+
+.perch-card-actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.perch-restore-btn,
+.perch-reassign-btn {
+  flex: 1;
+  font-size: 11px;
+  padding: 4px 8px;
+  background-color: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-primary);
+}
+
+.perch-restore-btn:hover:not(:disabled),
+.perch-reassign-btn:hover {
+  background-color: var(--info);
+  border-color: var(--info);
+}
+
+.perch-restore-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Collection Items */
+.collection-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+.collection-item.in-use {
+  opacity: 0.7;
+}
+
+.collection-bird-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  min-width: 0;
+}
+
+.collection-bird-icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.collection-vitality-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.collection-vitality-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+}
+
+.collection-vitality-ring-fill {
+  fill: none;
+  stroke: #66BB6A;
+  stroke-width: 3;
+  stroke-dasharray: 283;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.collection-vitality-ring-fill.greyed {
+  stroke: #555;
+  opacity: 0.6;
+}
+
+.collection-bird-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.collection-bird-icon.greyed {
+  opacity: 0.5;
+  filter: grayscale(50%);
+}
+
+.collection-bird-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.collection-bird-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.collection-bird-stats {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.collection-bird-location {
+  font-size: 11px;
+  color: var(--warning);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.collection-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.mature-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Bonuses Display */
+.bonuses-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.no-bonuses {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* === HATCHERY (BREEDING) === */
+.breeding-programs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.breeding-program-slot {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: var(--space-md);
+}
+
+.breeding-program-slot .slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.breeding-program-slot .slot-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.breeding-program-slot .slot-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border);
+}
+
+.breeding-program-slot .slot-status.locked {
+  color: var(--text-muted);
+}
+
+.breeding-program-slot .slot-status.active {
+  background: var(--success);
+  color: var(--bg-primary);
+  border-color: var(--success);
+}
+
+.breeding-program-slot .slot-status.empty {
+  color: var(--text-secondary);
+}
+
+.parent-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--bg-accent);
+  border-radius: 8px;
+}
+
+.parent-info .parent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.parent-info .bird-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.parent-info .bird-rarity {
+  font-size: 11px;
+}
+
+.parent-info .breeding-icon {
+  font-size: 20px;
+}
+
+.breeding-progress {
+  margin-bottom: var(--space-md);
+}
+
+.breeding-progress .progress-bar {
+  width: 100%;
+  height: 12px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: var(--space-sm);
+}
+
+.breeding-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success), var(--info));
+  transition: width 0.3s ease;
+}
+
+.breeding-progress .progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.incubate-btn {
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--info);
+  color: var(--text-primary);
+  border: 1px solid var(--info);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.incubate-btn:hover {
+  background: #1976D2;
+  transform: translateY(-1px);
+}
+
+.incubate-btn:active {
+  transform: translateY(0);
+}
+
+.parent-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.parent-select-box {
+  flex: 1;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 60px;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.parent-select-box:hover {
+  border-color: var(--info);
+  background: var(--bg-accent);
+  transform: translateY(-1px);
+}
+
+.parent-select-box:active {
+  transform: translateY(0);
+}
+
+.parent-select-box .select-prompt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.start-breeding-btn {
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--success);
+  color: var(--bg-primary);
+  border: 1px solid var(--success);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.start-breeding-btn:hover:not(:disabled) {
+  background: #45A049;
+  transform: translateY(-1px);
+}
+
+.start-breeding-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.start-breeding-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.unlock-btn {
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--warning);
+  color: var(--bg-primary);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.unlock-btn:hover {
+  background: #F57C00;
+  transform: translateY(-1px);
+}
+
+.unlock-btn:active {
+  transform: translateY(0);
+}
+
+.mature-birds-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.mature-birds-header {
+  margin-bottom: var(--space-sm);
+}
+
+.mature-birds-header h3 {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.mature-birds-header .subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.mature-birds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-md);
+}
+
+.mature-bird-card {
+  position: relative;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mature-bird-card:hover {
+  border-color: var(--info);
+  transform: translateY(-2px);
+}
+
+.mature-bird-card.selected {
+  border-color: var(--success);
+  background: var(--bg-accent);
+}
+
+.mature-bird-card .bird-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.mature-bird-card .bird-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mature-bird-card .bird-rarity {
+  font-size: 12px;
+}
+
+.mature-bird-card .bird-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.mature-bird-card .bird-biome {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mature-bird-card .bird-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.selection-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--success);
+  color: var(--bg-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.empty-message {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: var(--space-lg);
+  font-style: italic;
+}
+
+/* Bird Selection Modal */
+.bird-selection-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+}
+
+.bird-selection-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.section-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.bird-selection-item {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bird-selection-item:hover {
+  border-color: var(--info);
+  transform: translateX(4px);
+}
+
+.bird-selection-item.assigned {
+  opacity: 0.6;
+}
+
+.bird-selection-item.assigned:hover {
+  opacity: 1;
+  border-color: var(--warning);
+}
+
+.bird-selection-item.immature {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.bird-selection-item.immature:hover {
+  border-color: var(--border);
+  transform: none;
+}
+
+.bird-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.bird-info .bird-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.bird-info .bird-rarity {
+  font-size: 12px;
+}
+
+.bird-location-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.location-label {
+  font-size: 11px;
+  color: var(--warning);
+  font-style: italic;
+}
+
+.immature-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.modal-message {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: var(--space-md);
 }
