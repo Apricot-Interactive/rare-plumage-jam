@@ -206,13 +206,19 @@ export function completeBreeding(programSlot) {
     }
 
     console.log(`Breeding complete! New bird: ${newBird.speciesName} (${newBird.distinction}⭐)`);
+
+    // Show celebration overlay
+    // Import and call from UI module to avoid circular dependency
+    import('../ui/hatchery.js').then(module => {
+      module.showBreedingCelebration(newBird, parent1, parent2, programSlot);
+    });
   }
 
   // Return parents to collection
   parent1.location = 'collection';
   parent2.location = 'collection';
 
-  // Reset breeding program
+  // Reset breeding program (will be done by celebration callback)
   program.active = false;
   program.lineage1Id = null;
   program.lineage2Id = null;

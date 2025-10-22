@@ -8,6 +8,50 @@ let selectedParent2 = null;
 let currentSelectingProgram = null;
 let currentSelectingParent = null; // 1 or 2
 
+// Celebration overlay function
+export function showBreedingCelebration(newBird, parent1, parent2, programSlot) {
+  const container = document.querySelector(`[data-program-slot="${programSlot}"]`);
+  if (!container) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'celebration-overlay breeding-celebration';
+  overlay.innerHTML = `
+    <div class="celebration-content">
+      <div class="celebration-header">🎉 Breeding Complete! 🎉</div>
+      <div class="celebration-parents">
+        <div class="celebration-parent">
+          <div class="parent-name">${parent1.speciesName}</div>
+          <div class="parent-rarity">${RARITY[parent1.distinction]?.stars || ''}</div>
+          <div class="parent-traits">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</div>
+        </div>
+        <div class="celebration-heart">💕</div>
+        <div class="celebration-parent">
+          <div class="parent-name">${parent2.speciesName}</div>
+          <div class="parent-rarity">${RARITY[parent2.distinction]?.stars || ''}</div>
+          <div class="parent-traits">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</div>
+        </div>
+      </div>
+      <div class="celebration-offspring">
+        <img src="/assets/birds/bird-${newBird.distinction}star.png" class="celebration-bird-img" />
+        <div class="offspring-name">${newBird.speciesName}</div>
+        <div class="offspring-rarity">${RARITY[newBird.distinction]?.stars || ''}</div>
+        <div class="offspring-traits">${newBird.traits.map(t => TRAITS[t]?.name || t).join(', ')}</div>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(overlay);
+
+  // Fade out and remove after 4 seconds
+  setTimeout(() => {
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      updateHatcheryUI();
+    }, 500);
+  }, 4000);
+}
+
 export function initHatcheryUI() {
   console.log('Initializing Hatchery UI');
   updateHatcheryUI();
@@ -27,9 +71,27 @@ export function renderBreedingPrograms() {
 
   container.innerHTML = '';
 
+  // Only show programs up to the first locked one
+  // (i.e., don't show locked program 2 until program 1 is unlocked)
+  let showProgram = true;
+
   gameState.breedingPrograms.forEach(program => {
+    // If we encounter a locked program, hide all subsequent programs
+    if (!program.unlocked && program.program > 0) {
+      // Check if the previous program is unlocked
+      const previousProgram = gameState.breedingPrograms[program.program - 1];
+      if (previousProgram && !previousProgram.unlocked) {
+        showProgram = false;
+      }
+    }
+
+    if (!showProgram) {
+      return; // Skip rendering this program
+    }
+
     const programDiv = document.createElement('div');
     programDiv.className = 'breeding-program-slot';
+    programDiv.dataset.programSlot = program.program;
 
     if (!program.unlocked) {
       // Locked slot
@@ -73,11 +135,13 @@ export function renderBreedingPrograms() {
             <div class="parent">
               <span class="bird-name">${parent1?.speciesName || 'Unknown'}</span>
               <span class="bird-rarity">${RARITY[parent1?.distinction]?.stars || ''}</span>
+              ${parent1 ? `<span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
             </div>
             <span class="breeding-icon">💕</span>
             <div class="parent">
               <span class="bird-name">${parent2?.speciesName || 'Unknown'}</span>
               <span class="bird-rarity">${RARITY[parent2?.distinction]?.stars || ''}</span>
+              ${parent2 ? `<span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
             </div>
           </div>
           <div class="breeding-progress">
@@ -98,7 +162,7 @@ export function renderBreedingPrograms() {
       const incubateBtn = programDiv.querySelector('.incubate-btn');
       incubateBtn.addEventListener('click', () => {
         manualIncubate(program.program);
-        updateHatcheryUI();
+        updateBreedingProgressBars();
       });
     } else {
       // Empty slot ready for breeding
@@ -114,13 +178,13 @@ export function renderBreedingPrograms() {
           <div class="parent-selection">
             <button class="parent-select-box" data-parent="1" data-program="${program.program}">
               ${parent1
-                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity">${RARITY[parent1.distinction]?.stars || ''}</span>`
+                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity">${RARITY[parent1.distinction]?.stars || ''}</span><span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
                 : '<span class="select-prompt">Select Parent 1</span>'}
             </button>
             <span class="breeding-icon">💕</span>
             <button class="parent-select-box" data-parent="2" data-program="${program.program}">
               ${parent2
-                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity">${RARITY[parent2.distinction]?.stars || ''}</span>`
+                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity">${RARITY[parent2.distinction]?.stars || ''}</span><span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
                 : '<span class="select-prompt">Select Parent 2</span>'}
             </button>
           </div>
@@ -207,22 +271,22 @@ function showBirdSelectionModal() {
             const isAssigned = !isAvailable;
             const vitalityPercent = bird.vitalityPercent;
             const maturityPercent = bird.isMature ? 100 : 0;
-            const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
-            const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
+            const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
+            const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
             return `
               <div class="bird-selection-item ${isAssigned ? 'assigned' : ''}" data-bird-id="${bird.id}">
                 <div class="btn-bird-icon-wrapper">
                   <svg class="bird-rings" viewBox="0 0 100 100">
-                    <!-- Maturity Ring (innermost, blue) -->
-                    <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
-                    <circle class="maturity-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="27"
-                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
+                    <!-- Frame Ring (outermost, drawn first) -->
+                    <circle class="frame-ring ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="37" />
                     <!-- Vitality Ring (middle, green) -->
-                    <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
-                    <circle class="vitality-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="30"
+                    <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+                    <circle class="vitality-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="31"
                             style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-                    <!-- Frame Ring (outermost) -->
-                    <circle class="frame-ring ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="33" />
+                    <!-- Maturity Ring (innermost, blue, drawn last) -->
+                    <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+                    <circle class="maturity-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="25"
+                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
                   </svg>
                   <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon ${isAssigned ? 'greyed' : ''}" />
                 </div>
@@ -242,22 +306,22 @@ function showBirdSelectionModal() {
           ${immatureBirds.map(bird => {
             const vitalityPercent = bird.vitalityPercent;
             const maturityPercent = bird.isMature ? 100 : 0;
-            const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
-            const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
+            const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
+            const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
             return `
               <div class="bird-selection-item immature" data-bird-id="${bird.id}">
                 <div class="btn-bird-icon-wrapper">
                   <svg class="bird-rings" viewBox="0 0 100 100">
-                    <!-- Maturity Ring (innermost, blue) -->
-                    <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
-                    <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="27"
-                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
+                    <!-- Frame Ring (outermost, drawn first) -->
+                    <circle class="frame-ring greyed" cx="50" cy="50" r="37" />
                     <!-- Vitality Ring (middle, green) -->
-                    <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
-                    <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="30"
+                    <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+                    <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="31"
                             style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-                    <!-- Frame Ring (outermost) -->
-                    <circle class="frame-ring greyed" cx="50" cy="50" r="33" />
+                    <!-- Maturity Ring (innermost, blue, drawn last) -->
+                    <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+                    <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="25"
+                            style="stroke-dashoffset: ${maturityStrokeOffset}" />
                   </svg>
                   <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
                 </div>
@@ -349,6 +413,24 @@ export function updateBreedingProgressBars() {
       const progressFill = document.querySelector(`.progress-fill[data-program="${program.program}"]`);
       if (progressFill) {
         progressFill.style.width = `${Math.min(100, program.progress)}%`;
+      }
+
+      // Update timer display
+      const programDiv = document.querySelector(`[data-program-slot="${program.program}"]`);
+      if (programDiv) {
+        const timeRemaining = Math.max(0, program.estimatedDuration - (program.progress / 100 * program.estimatedDuration));
+        const minutesRemaining = Math.floor(timeRemaining / 60000);
+        const secondsRemaining = Math.floor((timeRemaining % 60000) / 1000);
+
+        const timeRemainingEl = programDiv.querySelector('.time-remaining');
+        const progressPercentEl = programDiv.querySelector('.progress-percent');
+
+        if (timeRemainingEl) {
+          timeRemainingEl.textContent = `${minutesRemaining}m ${secondsRemaining}s`;
+        }
+        if (progressPercentEl) {
+          progressPercentEl.textContent = `${Math.floor(program.progress)}%`;
+        }
       }
     }
   });

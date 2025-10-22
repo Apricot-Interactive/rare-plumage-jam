@@ -103,6 +103,11 @@ export function completeSurvey(biomeId) {
     }
 
     console.log(`New bird discovered: ${newBird.speciesName} (${distinction}⭐)`);
+
+    // Show celebration overlay
+    import('../ui/wilds.js').then(module => {
+      module.showSurveyCelebration(newBird, biomeId);
+    });
   }
 
   // Reset survey

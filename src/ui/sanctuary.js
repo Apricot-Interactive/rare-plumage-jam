@@ -29,6 +29,24 @@ export function renderPerches() {
   });
 }
 
+// Helper function to get bonuses provided by a specific bird
+function getBirdBonuses(bird) {
+  if (!bird || !bird.traits) return [];
+
+  const bonuses = [];
+  bird.traits.forEach(traitId => {
+    const trait = TRAITS[traitId];
+    if (trait && trait.guestBonus) {
+      const { value } = trait.guestBonus;
+      const sign = value > 0 ? '+' : '';
+      const percent = (value * 100).toFixed(0);
+      bonuses.push(`${sign}${percent}% ${trait.description.split(' ').slice(1).join(' ')}`);
+    }
+  });
+
+  return bonuses;
+}
+
 function createPerchSlot(perch) {
   const wrapper = document.createElement('div');
   wrapper.className = 'perch-card';
@@ -72,41 +90,48 @@ function createPerchSlot(perch) {
     // Occupied perch
     wrapper.classList.add('occupied');
 
-    const cooldownSeconds = Math.ceil(perch.restoreCooldown / 1000);
-    const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+    // Get cooldown from bird (timestamp-based, with fallback for old saves)
+    const now = Date.now();
+    const cooldownMs = Math.max(0, (bird.restoreCooldownUntil || 0) - now);
+    const cooldownSeconds = Math.ceil(cooldownMs / 1000);
+    const bonuses = getBirdBonuses(bird);
+    const bonusText = bonuses.length > 0 ? bonuses.join(', ') : 'No bonuses';
 
     const maturityPercent = bird.isMature ? 100 : 0;
-    const vitalityStrokeOffset = 377 - (377 * bird.vitalityPercent / 100);
-    const maturityStrokeOffset = 327 - (327 * maturityPercent / 100);
+    // Using smaller radii for 90px container: r=38, r=42, r=46
+    const vitalityStrokeOffset = 264 - (264 * bird.vitalityPercent / 100);
+    const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
 
     wrapper.innerHTML = `
       <div class="perch-card-top">
         <div class="perch-vitality-ring-wrapper">
           <svg class="bird-rings" viewBox="0 0 100 100">
-            <!-- Maturity Ring (innermost, blue) -->
-            <circle class="maturity-ring-bg" cx="50" cy="50" r="52" />
-            <circle class="maturity-ring-fill" cx="50" cy="50" r="52"
-                    style="stroke-dashoffset: ${maturityStrokeOffset}" />
+            <!-- Frame Ring (outermost, drawn first) -->
+            <circle class="frame-ring" cx="50" cy="50" r="46" />
             <!-- Vitality Ring (middle, green) -->
-            <circle class="vitality-ring-bg" cx="50" cy="50" r="60" />
-            <circle class="vitality-ring-fill" cx="50" cy="50" r="60"
+            <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
+            <circle class="vitality-ring-fill" cx="50" cy="50" r="42"
                     style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-            <!-- Frame Ring (outermost) -->
-            <circle class="frame-ring" cx="50" cy="50" r="68" />
+            <!-- Maturity Ring (innermost, blue, drawn last) -->
+            <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+            <circle class="maturity-ring-fill" cx="50" cy="50" r="38"
+                    style="stroke-dashoffset: ${maturityStrokeOffset}" />
           </svg>
           <img src="/assets/birds/bird-${bird.distinction}star.png" alt="${bird.speciesName}" class="perch-bird-image" />
         </div>
       </div>
       <div class="perch-card-bottom">
+        <div class="perch-card-actions">
+          <button class="perch-restore-btn" ${cooldownMs > 0 ? 'disabled' : ''}>
+            ${cooldownMs > 0 ? `${cooldownSeconds}s` : `🪮`}
+          </button>
+          <button class="perch-mature-btn ${bird.isMature ? 'hidden' : ''}" ${bird.isMature ? 'disabled' : ''}>
+            🫘
+          </button>
+        </div>
         <div class="perch-bird-name">${bird.customDesignation || bird.speciesName}</div>
         <div class="perch-bird-rarity">${RARITY[bird.distinction].stars}</div>
-        <div class="perch-bird-traits">${traitNames}</div>
-        <div class="perch-card-actions">
-          <button class="perch-restore-btn" ${perch.restoreCooldown > 0 ? 'disabled' : ''}>
-            ${perch.restoreCooldown > 0 ? `${cooldownSeconds}s` : `🪮`}
-          </button>
-          <button class="perch-reassign-btn">❌</button>
-        </div>
+        <div class="perch-bird-bonuses">${bonusText}</div>
       </div>
     `;
 
@@ -119,9 +144,22 @@ function createPerchSlot(perch) {
       }
     });
 
-    // Reassign button
-    const reassignBtn = wrapper.querySelector('.perch-reassign-btn');
-    reassignBtn.addEventListener('click', (e) => {
+    // Mature button
+    const matureBtn = wrapper.querySelector('.perch-mature-btn');
+    if (matureBtn && !bird.isMature) {
+      matureBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (matureBird(bird.id)) {
+          updateSanctuaryUI();
+        } else {
+          alert('Not enough Seeds! Maturation costs 100 Seeds.');
+        }
+      });
+    }
+
+    // Name capsule for reassignment
+    const nameEl = wrapper.querySelector('.perch-bird-name');
+    nameEl.addEventListener('click', (e) => {
       e.stopPropagation();
       showBirdSelector(perch.slot);
     });
@@ -189,22 +227,22 @@ function showBirdSelector(slot) {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
       const maturityPercent = bird.isMature ? 100 : 0;
-      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
-      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
+      const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
+      const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn" data-bird-id="${bird.id}">
           <div class="btn-bird-icon-wrapper">
             <svg class="bird-rings" viewBox="0 0 100 100">
-              <!-- Maturity Ring (innermost, blue) -->
-              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
-              <circle class="maturity-ring-fill" cx="50" cy="50" r="27"
-                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Frame Ring (outermost, drawn first) -->
+              <circle class="frame-ring" cx="50" cy="50" r="37" />
               <!-- Vitality Ring (middle, green) -->
-              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
-              <circle class="vitality-ring-fill" cx="50" cy="50" r="30"
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+              <circle class="vitality-ring-fill" cx="50" cy="50" r="31"
                       style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-              <!-- Frame Ring (outermost) -->
-              <circle class="frame-ring" cx="50" cy="50" r="33" />
+              <!-- Maturity Ring (innermost, blue, drawn last) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+              <circle class="maturity-ring-fill" cx="50" cy="50" r="25"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
           </div>
@@ -223,22 +261,22 @@ function showBirdSelector(slot) {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
       const maturityPercent = bird.isMature ? 100 : 0;
-      const vitalityStrokeOffset = 190 - (190 * vitalityPercent / 100);
-      const maturityStrokeOffset = 170 - (170 * maturityPercent / 100);
+      const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
+      const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
       optionsHTML += `
         <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="${locationLabel}">
           <div class="btn-bird-icon-wrapper">
             <svg class="bird-rings" viewBox="0 0 100 100">
-              <!-- Maturity Ring (innermost, blue) -->
-              <circle class="maturity-ring-bg" cx="50" cy="50" r="27" />
-              <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="27"
-                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
+              <!-- Frame Ring (outermost, drawn first) -->
+              <circle class="frame-ring greyed" cx="50" cy="50" r="37" />
               <!-- Vitality Ring (middle, green) -->
-              <circle class="vitality-ring-bg" cx="50" cy="50" r="30" />
-              <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="30"
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+              <circle class="vitality-ring-fill greyed" cx="50" cy="50" r="31"
                       style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-              <!-- Frame Ring (outermost) -->
-              <circle class="frame-ring greyed" cx="50" cy="50" r="33" />
+              <!-- Maturity Ring (innermost, blue, drawn last) -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+              <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="25"
+                      style="stroke-dashoffset: ${maturityStrokeOffset}" />
             </svg>
             <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
           </div>
@@ -345,8 +383,20 @@ export function renderCollection() {
 
   container.innerHTML = '';
 
-  // Show ALL birds, not just those in collection
-  const allBirds = gameState.specimens;
+  // Show ALL birds, sorted by:
+  // (a) Unassigned first (collection), sorted by distinction (high to low)
+  // (b) Assigned second (not in collection), sorted by distinction (high to low)
+  const allBirds = [...gameState.specimens].sort((a, b) => {
+    const aInCollection = a.location === 'collection';
+    const bInCollection = b.location === 'collection';
+
+    // Unassigned birds come first
+    if (aInCollection && !bInCollection) return -1;
+    if (!aInCollection && bInCollection) return 1;
+
+    // Within same assignment status, sort by distinction (high to low)
+    return b.distinction - a.distinction;
+  });
 
   if (allBirds.length === 0) {
     container.innerHTML = '<p class="empty-message">No birds</p>';
@@ -394,16 +444,16 @@ function createCollectionItem(bird) {
     <div class="collection-bird-info">
       <div class="collection-bird-icon-wrapper">
         <svg class="bird-rings" viewBox="0 0 100 100">
-          <!-- Maturity Ring (innermost, blue) -->
-          <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
-          <circle class="maturity-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="38"
-                  style="stroke-dashoffset: ${maturityStrokeOffset}" />
+          <!-- Frame Ring (outermost, drawn first) -->
+          <circle class="frame-ring" cx="50" cy="50" r="46" />
           <!-- Vitality Ring (middle, green) -->
           <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
           <circle class="vitality-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="42"
                   style="stroke-dashoffset: ${vitalityStrokeOffset}" />
-          <!-- Frame Ring (outermost) -->
-          <circle class="frame-ring" cx="50" cy="50" r="46" />
+          <!-- Maturity Ring (innermost, blue, drawn last) -->
+          <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+          <circle class="maturity-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="38"
+                  style="stroke-dashoffset: ${maturityStrokeOffset}" />
         </svg>
         <img src="/assets/birds/bird-${bird.distinction}star.png" class="collection-bird-icon ${!isAvailable ? 'greyed' : ''}" />
       </div>
@@ -438,15 +488,21 @@ export function updatePerchCooldowns() {
   gameState.perches.forEach(perch => {
     if (!perch.unlocked || !perch.birdId) return;
 
+    const bird = getBirdById(perch.birdId);
+    if (!bird) return;
+
     const wrapper = document.querySelector(`.perch-card[data-slot="${perch.slot}"]`);
     if (!wrapper) return;
 
     const restoreBtn = wrapper.querySelector('.perch-restore-btn');
     if (!restoreBtn) return;
 
-    const cooldownSeconds = Math.ceil(perch.restoreCooldown / 1000);
+    // Calculate remaining cooldown based on timestamp
+    const now = Date.now();
+    const cooldownMs = Math.max(0, (bird.restoreCooldownUntil || 0) - now);
+    const cooldownSeconds = Math.ceil(cooldownMs / 1000);
 
-    if (perch.restoreCooldown > 0) {
+    if (cooldownMs > 0) {
       restoreBtn.disabled = true;
       restoreBtn.textContent = `${cooldownSeconds}s`;
     } else {

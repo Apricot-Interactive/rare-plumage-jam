@@ -64,7 +64,8 @@ function createDefaultState() {
         isMature: false,
         cataloguedAt: Date.now(),
         location: 'collection',
-        isLegendary: false
+        isLegendary: false,
+        restoreCooldownUntil: 0
       }
     ],
 

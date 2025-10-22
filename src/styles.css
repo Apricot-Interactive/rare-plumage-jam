@@ -138,11 +138,13 @@ body {
 }
 
 .game-title {
-  font-family: var(--font-header);
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
+  font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
   color: var(--text-primary);
+  line-height: 1.1;
+  text-align: center;
 }
 
 .header-right {
@@ -477,6 +479,7 @@ button.danger {
 }
 
 .survey-item {
+  position: relative;
   padding: var(--space-md);
   background-color: var(--bg-secondary);
   border: 2px solid var(--border);
@@ -496,20 +499,16 @@ button.danger {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--bg-accent);
-  border: 2px solid var(--border-light);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
   transition: all var(--transition-fast);
-  overflow: hidden;
 }
 
 .biome-circle:hover {
   transform: scale(1.05);
-  border-color: var(--info);
 }
 
 .biome-circle:active {
@@ -522,39 +521,7 @@ button.danger {
   object-fit: cover;
 }
 
-.biome-bird-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  z-index: 1;
-}
-
-.biome-vitality-ring {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.biome-vitality-ring-bg {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 4;
-}
-
-.biome-vitality-ring-fill {
-  fill: none;
-  stroke: #66BB6A;
-  stroke-width: 4;
-  stroke-dasharray: 283;
-  transition: stroke-dashoffset 0.5s ease;
-}
+/* Removed - now handled by .survey-bird-icon and .bird-rings */
 
 /* Survey Info */
 .survey-info {
@@ -1180,6 +1147,9 @@ button.danger {
   height: 80px;
   cursor: pointer;
   transition: transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .forager-circle:hover {
@@ -1240,6 +1210,37 @@ button.danger {
   fill: none;
   stroke: var(--border-light);
   stroke-width: 2;
+  transition: stroke var(--transition-fast);
+}
+
+/* Frame ring hover for forager/survey circles */
+.forager-circle.active:hover .frame-ring,
+.biome-circle:hover .frame-ring {
+  stroke: var(--info);
+}
+
+/* Modal-specific ring styles (thicker for readability) */
+.btn-bird-icon-wrapper .maturity-ring-bg,
+.btn-bird-icon-wrapper .maturity-ring-fill,
+.btn-bird-icon-wrapper .vitality-ring-bg,
+.btn-bird-icon-wrapper .vitality-ring-fill {
+  stroke-width: 6;
+}
+
+.btn-bird-icon-wrapper .frame-ring {
+  stroke-width: 4;
+}
+
+/* Bird selection items in hatchery */
+.bird-selection-item .maturity-ring-bg,
+.bird-selection-item .maturity-ring-fill,
+.bird-selection-item .vitality-ring-bg,
+.bird-selection-item .vitality-ring-fill {
+  stroke-width: 6;
+}
+
+.bird-selection-item .frame-ring {
+  stroke-width: 4;
 }
 
 /* Legacy vitality-ring for compatibility */
@@ -1253,56 +1254,38 @@ button.danger {
   pointer-events: none;
 }
 
-/* Circle Content */
-.circle-content {
+/* Forager and Survey Bird Icons */
+.forager-bird-icon,
+.survey-bird-icon {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--bg-secondary);
-  border: 2px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
-.forager-circle.locked .circle-content {
-  border-style: dashed;
+/* Empty slot styling */
+.forager-circle.empty .forager-bird-icon,
+.biome-circle .survey-bird-icon {
   opacity: 0.6;
 }
 
-.forager-circle.empty .circle-content {
-  border-style: dashed;
-  border-color: var(--border-light);
-}
-
-.forager-circle.active .circle-content {
-  border-color: var(--border);
-}
-
-.forager-circle.active:hover .circle-content {
-  border-color: var(--info);
+/* Empty frame ring styling */
+.empty-frame {
+  stroke-dasharray: 4 4;
+  stroke: var(--border-light);
 }
 
 /* Icons and Sprites */
 .lock-icon {
   font-size: 32px;
-}
-
-.empty-icon {
-  width: 48px;
-  height: 48px;
-  opacity: 0.5;
-}
-
-.bird-sprite {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Forager Label */
@@ -1333,18 +1316,18 @@ button.danger {
   transform: translateY(0);
 }
 
-.forager-circle.locked + .forager-label {
+.forager-label.locked-label {
   color: var(--text-muted);
   font-size: 11px;
-  cursor: default;
+  cursor: pointer;
   border-style: dashed;
 }
 
-.forager-circle.locked + .forager-label:hover {
-  border-color: var(--border-light);
-  background: var(--bg-accent);
-  color: var(--text-muted);
-  transform: none;
+.forager-label.locked-label:hover {
+  border-color: var(--info);
+  background: var(--info);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 /* Floating Income */
@@ -1383,7 +1366,7 @@ button.danger {
   min-height: 500px;
 }
 
-/* Top row: 2 perches centered (each takes 2 columns with 1 column margins) */
+/* Top row: 2 perches centered - wider (30% more width) */
 .perches-grid .perch-card:nth-child(1) {
   grid-column: 1 / 4;
 }
@@ -1403,6 +1386,57 @@ button.danger {
 
 .perches-grid .perch-card:nth-child(5) {
   grid-column: 5 / 7;
+}
+
+/* Top two perches - larger icons and rings (30% bigger) */
+.perches-grid .perch-card:nth-child(1) .perch-vitality-ring-wrapper,
+.perches-grid .perch-card:nth-child(2) .perch-vitality-ring-wrapper {
+  width: 117px;
+  height: 117px;
+}
+
+.perches-grid .perch-card:nth-child(1) .perch-bird-image,
+.perches-grid .perch-card:nth-child(2) .perch-bird-image {
+  max-width: 97.5px;
+}
+
+.perches-grid .perch-card:nth-child(1) .perch-lock-icon,
+.perches-grid .perch-card:nth-child(1) .perch-empty-icon,
+.perches-grid .perch-card:nth-child(2) .perch-lock-icon,
+.perches-grid .perch-card:nth-child(2) .perch-empty-icon {
+  font-size: 83px;
+}
+
+/* Bottom three perches - reduce padding for compactness */
+.perches-grid .perch-card:nth-child(3) .perch-card-top,
+.perches-grid .perch-card:nth-child(4) .perch-card-top,
+.perches-grid .perch-card:nth-child(5) .perch-card-top {
+  padding: var(--space-xs) var(--space-md);
+  min-height: auto;
+}
+
+.perches-grid .perch-card:nth-child(3) .perch-card-bottom,
+.perches-grid .perch-card:nth-child(4) .perch-card-bottom,
+.perches-grid .perch-card:nth-child(5) .perch-card-bottom {
+  padding: var(--space-xs) var(--space-md);
+}
+
+.perches-grid .perch-card:nth-child(3) .perch-bird-bonuses,
+.perches-grid .perch-card:nth-child(4) .perch-bird-bonuses,
+.perches-grid .perch-card:nth-child(5) .perch-bird-bonuses {
+  margin-bottom: 2px;
+}
+
+.perches-grid .perch-card:nth-child(3) .perch-bird-traits,
+.perches-grid .perch-card:nth-child(4) .perch-bird-traits,
+.perches-grid .perch-card:nth-child(5) .perch-bird-traits {
+  margin-bottom: 2px;
+}
+
+.perches-grid .perch-card:nth-child(3) .perch-card-actions,
+.perches-grid .perch-card:nth-child(4) .perch-card-actions,
+.perches-grid .perch-card:nth-child(5) .perch-card-actions {
+  margin-top: 2px;
 }
 
 .perch-card {
@@ -1449,22 +1483,25 @@ button.danger {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-lg);
+  padding: var(--space-md);
   background-color: var(--bg-accent);
   position: relative;
-  min-height: 180px;
+  min-height: 135px;
 }
 
 .perch-lock-icon,
 .perch-empty-icon {
   font-size: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Vitality Ring Wrapper */
 .perch-vitality-ring-wrapper {
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 90px;
+  height: 90px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1498,7 +1535,7 @@ button.danger {
 
 .perch-bird-image {
   width: 100%;
-  max-width: 100px;
+  max-width: 75px;
   height: auto;
   object-fit: contain;
   position: relative;
@@ -1526,17 +1563,44 @@ button.danger {
 }
 
 .perch-bird-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px 12px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.perch-bird-name:hover {
+  border-color: var(--info);
+  background: var(--info);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.perch-bird-name:active {
+  transform: translateY(0);
+}
+
 .perch-bird-rarity {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.perch-bird-bonuses {
+  font-size: 10px;
+  color: var(--info);
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .perch-bird-traits {
@@ -1552,30 +1616,39 @@ button.danger {
   display: flex;
   gap: var(--space-xs);
   margin-top: var(--space-xs);
+  justify-content: center;
 }
 
 .perch-restore-btn,
-.perch-reassign-btn {
+.perch-mature-btn {
   flex: 1;
-  font-size: 11px;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 6px 8px;
   background-color: var(--bg-accent);
   border: 1px solid var(--border-light);
   border-radius: 4px;
   cursor: pointer;
   transition: all var(--transition-fast);
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .perch-restore-btn:hover:not(:disabled),
-.perch-reassign-btn:hover {
+.perch-mature-btn:hover:not(:disabled) {
   background-color: var(--info);
   border-color: var(--info);
 }
 
-.perch-restore-btn:disabled {
-  opacity: 0.5;
+.perch-restore-btn:disabled,
+.perch-mature-btn:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
+}
+
+.perch-mature-btn.hidden {
+  display: none;
 }
 
 /* Collection Items */
@@ -1583,7 +1656,7 @@ button.danger {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   background-color: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1604,8 +1677,8 @@ button.danger {
 
 .collection-bird-icon-wrapper {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   flex-shrink: 0;
 }
 
@@ -1641,8 +1714,8 @@ button.danger {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
 }
 
@@ -1687,10 +1760,7 @@ button.danger {
 
 /* Bonuses Display */
 .bonuses-display {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+  display: none;
 }
 
 .no-bonuses {
@@ -1707,6 +1777,7 @@ button.danger {
 }
 
 .breeding-program-slot {
+  position: relative;
   background: var(--bg-secondary);
   border: 2px solid var(--border);
   border-radius: 12px;
@@ -1841,9 +1912,9 @@ button.danger {
 .parent-select-box {
   flex: 1;
   padding: var(--space-md);
-  background: var(--bg-secondary);
-  border: 2px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -1857,7 +1928,7 @@ button.danger {
 
 .parent-select-box:hover {
   border-color: var(--info);
-  background: var(--bg-accent);
+  background: var(--info);
   transform: translateY(-1px);
 }
 
@@ -1867,7 +1938,11 @@ button.danger {
 
 .parent-select-box .select-prompt {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.parent-select-box:hover .select-prompt {
+  color: var(--text-primary);
 }
 
 .start-breeding-btn {
@@ -2021,6 +2096,222 @@ button.danger {
   text-align: center;
   padding: var(--space-lg);
   font-style: italic;
+}
+
+/* === CELEBRATION OVERLAYS === */
+.celebration-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.95) 0%, rgba(33, 150, 243, 0.95) 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: celebrationFadeIn 0.3s ease-out;
+  transition: opacity 0.5s ease-out;
+}
+
+@keyframes celebrationFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.celebration-content {
+  text-align: center;
+  padding: var(--space-sm);
+  color: var(--text-primary);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.celebration-header {
+  font-family: var(--font-header);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Breeding Celebration */
+.breeding-celebration .celebration-parents {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.celebration-parent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.celebration-parent .parent-name {
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.celebration-parent .parent-rarity {
+  font-size: 9px;
+}
+
+.celebration-parent .parent-traits {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.celebration-heart {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.celebration-offspring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.celebration-bird-img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  animation: celebrationBounce 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes celebrationBounce {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-6px);
+  }
+}
+
+.offspring-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.offspring-rarity {
+  font-size: 11px;
+}
+
+.offspring-traits {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Survey Celebration - Horizontal Layout */
+.survey-celebration .survey-content {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--space-xs) var(--space-sm);
+  gap: var(--space-md);
+}
+
+.survey-celebration-left {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.survey-celebration .celebration-bird-img {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  animation: celebrationBounce 0.6s ease-in-out infinite alternate;
+}
+
+.survey-celebration-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.survey-celebration .celebration-header {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.survey-celebration .bird-name {
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.survey-celebration .bird-rarity {
+  font-size: 11px;
+}
+
+.survey-celebration .bird-traits {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Small bird traits display */
+.bird-traits-small {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 2px;
+  display: block;
 }
 
 /* Bird Selection Modal */

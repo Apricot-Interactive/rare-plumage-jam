@@ -20,11 +20,6 @@ export function updateGrooming(dt) {
 
       bird.vitalityPercent = Math.min(100, bird.vitalityPercent + restoreAmount);
     }
-
-    // Update cooldown
-    if (perch.restoreCooldown > 0) {
-      perch.restoreCooldown = Math.max(0, perch.restoreCooldown - dt);
-    }
   });
 }
 
@@ -49,7 +44,11 @@ export function assignPerch(slot, birdId) {
   bird.location = `perch_${slot}`;
   perch.birdId = birdId;
   perch.assignedAt = Date.now();
-  perch.restoreCooldown = 0;
+
+  // Initialize cooldown timestamp on bird if it doesn't exist
+  if (bird.restoreCooldownUntil === undefined) {
+    bird.restoreCooldownUntil = 0;
+  }
 
   console.log(`Assigned ${bird.speciesName} to Perch ${slot + 1}`);
   return true;
@@ -68,7 +67,6 @@ export function unassignPerch(slot) {
 
   perch.birdId = null;
   perch.assignedAt = null;
-  perch.restoreCooldown = 0;
 
   console.log(`Unassigned from Perch ${slot + 1}`);
   return true;
@@ -95,14 +93,21 @@ export function instantRestore(slot) {
   const perch = gameState.perches.find(p => p.slot === slot);
   if (!perch || !perch.birdId) return false;
 
-  // Check cooldown
-  if (perch.restoreCooldown > 0) {
-    console.log(`Restore on cooldown: ${Math.ceil(perch.restoreCooldown / 1000)}s remaining`);
-    return false;
-  }
-
   const bird = getBirdById(perch.birdId);
   if (!bird) return false;
+
+  // Initialize cooldown timestamp if it doesn't exist
+  if (bird.restoreCooldownUntil === undefined) {
+    bird.restoreCooldownUntil = 0;
+  }
+
+  // Check cooldown on the bird (timestamp-based)
+  const now = Date.now();
+  if (bird.restoreCooldownUntil > now) {
+    const remainingMs = bird.restoreCooldownUntil - now;
+    console.log(`Restore on cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`);
+    return false;
+  }
 
   // Apply instant restore
   bird.vitalityPercent = Math.min(100, bird.vitalityPercent + IMMEDIATE_RESTORE_AMOUNT);
@@ -111,7 +116,7 @@ export function instantRestore(slot) {
   const { FORAGER_DURATION } = { FORAGER_DURATION: { 1: 10, 2: 60, 3: 240, 4: 480, 5: 1440 } };
   const groomTimeMinutes = FORAGER_DURATION[bird.distinction] || 10;
   const cooldownMinutes = groomTimeMinutes * IMMEDIATE_RESTORE_COOLDOWN;
-  perch.restoreCooldown = cooldownMinutes * 60 * 1000; // Convert to milliseconds
+  bird.restoreCooldownUntil = now + (cooldownMinutes * 60 * 1000); // Set timestamp
 
   console.log(`Instant restore: +${IMMEDIATE_RESTORE_AMOUNT}% vitality, cooldown ${cooldownMinutes}min`);
   return true;
