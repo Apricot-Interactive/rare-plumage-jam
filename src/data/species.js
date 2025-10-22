@@ -1,5 +1,5 @@
 // SANCTUARY - Species Name Generation
-import { TRAIT_WEIGHTS_BY_DISTINCTION, TRAITS_BY_RARITY, TRAIT_COUNT } from '../core/constants.js';
+import { TRAIT_WEIGHTS_BY_DISTINCTION, TRAITS_BY_RARITY, TRAIT_COUNT, LEGENDARIES } from '../core/constants.js';
 import { generateId, weightedChoice, randomChoice } from '../utils/random.js';
 
 // Bird types for species generation
@@ -85,6 +85,34 @@ export function createSpecimen(biome, distinction, providedTraits = null, isLege
     cataloguedAt: Date.now(),
     location: 'collection',
     isLegendary
+  };
+
+  return specimen;
+}
+
+export function createLegendarySpecimen(biome) {
+  // Get legendary data from constants
+  const legendaryData = LEGENDARIES[biome];
+  if (!legendaryData) {
+    console.error(`No legendary defined for biome: ${biome}`);
+    return null;
+  }
+
+  // Create legendary specimen
+  const specimen = {
+    id: generateId('bird'),
+    speciesName: legendaryData.speciesName,
+    scientificName: legendaryData.scientificName,
+    customDesignation: null,
+    distinction: 5, // Legendaries are 5-star
+    biome: legendaryData.biome,
+    traits: ['luminescence', 'supremacy', 'synchrony'], // Legendaries have all epic/rare traits
+    vitalityPercent: 100,
+    isMature: false,
+    cataloguedAt: Date.now(),
+    location: 'collection',
+    isLegendary: true,
+    lore: legendaryData.lore
   };
 
   return specimen;

@@ -135,12 +135,14 @@ export function renderBreedingPrograms() {
             <div class="parent">
               <span class="bird-name">${parent1?.speciesName || 'Unknown'}</span>
               <span class="bird-rarity">${RARITY[parent1?.distinction]?.stars || ''}</span>
+              ${parent1 ? `<span class="bird-biome-small">🌿 ${parent1.biome.charAt(0).toUpperCase() + parent1.biome.slice(1)}</span>` : ''}
               ${parent1 ? `<span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
             </div>
             <span class="breeding-icon">💕</span>
             <div class="parent">
               <span class="bird-name">${parent2?.speciesName || 'Unknown'}</span>
               <span class="bird-rarity">${RARITY[parent2?.distinction]?.stars || ''}</span>
+              ${parent2 ? `<span class="bird-biome-small">🌿 ${parent2.biome.charAt(0).toUpperCase() + parent2.biome.slice(1)}</span>` : ''}
               ${parent2 ? `<span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
             </div>
           </div>
@@ -178,13 +180,13 @@ export function renderBreedingPrograms() {
           <div class="parent-selection">
             <button class="parent-select-box" data-parent="1" data-program="${program.program}">
               ${parent1
-                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity">${RARITY[parent1.distinction]?.stars || ''}</span><span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
+                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity">${RARITY[parent1.distinction]?.stars || ''}</span><span class="bird-biome-small">🌿 ${parent1.biome.charAt(0).toUpperCase() + parent1.biome.slice(1)}</span><span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
                 : '<span class="select-prompt">Select Parent 1</span>'}
             </button>
             <span class="breeding-icon">💕</span>
             <button class="parent-select-box" data-parent="2" data-program="${program.program}">
               ${parent2
-                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity">${RARITY[parent2.distinction]?.stars || ''}</span><span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
+                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity">${RARITY[parent2.distinction]?.stars || ''}</span><span class="bird-biome-small">🌿 ${parent2.biome.charAt(0).toUpperCase() + parent2.biome.slice(1)}</span><span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
                 : '<span class="select-prompt">Select Parent 2</span>'}
             </button>
           </div>
@@ -293,6 +295,7 @@ function showBirdSelectionModal() {
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
+                  <span class="bird-biome">🌿 ${bird.biome.charAt(0).toUpperCase() + bird.biome.slice(1)}</span>
                   ${isAssigned ? `<span class="location-label">Assigned: ${formatLocation(bird.location)}</span>` : ''}
                 </div>
               </div>
@@ -328,6 +331,7 @@ function showBirdSelectionModal() {
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
+                  <span class="bird-biome">🌿 ${bird.biome.charAt(0).toUpperCase() + bird.biome.slice(1)}</span>
                   <span class="immature-label">Not mature</span>
                 </div>
               </div>

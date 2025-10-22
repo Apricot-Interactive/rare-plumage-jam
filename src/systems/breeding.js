@@ -182,7 +182,54 @@ export function completeBreeding(programSlot) {
     return;
   }
 
-  // Calculate offspring genetics
+  // Check for legendary eligibility FIRST
+  const isLegendary = checkLegendaryEligibility(parent1, parent2);
+
+  let newBird;
+  if (isLegendary) {
+    // Create legendary specimen
+    console.log(`🌟 LEGENDARY BREEDING! Creating ${parent1.biome} legendary...`);
+    // Import createLegendarySpecimen function
+    import('../data/species.js').then(module => {
+      const legendary = module.createLegendarySpecimen(parent1.biome);
+      if (legendary) {
+        gameState.specimens.push(legendary);
+
+        // Add to catalogued species if new
+        if (!gameState.cataloguedSpecies.includes(legendary.speciesName)) {
+          gameState.cataloguedSpecies.push(legendary.speciesName);
+        }
+
+        // Track legendary acquisition
+        if (!gameState.legendariesAcquired.includes(parent1.biome)) {
+          gameState.legendariesAcquired.push(parent1.biome);
+        }
+
+        console.log(`✨ Legendary created: ${legendary.speciesName}`);
+
+        // Show celebration overlay
+        import('../ui/hatchery.js').then(uiModule => {
+          uiModule.showBreedingCelebration(legendary, parent1, parent2, programSlot);
+        });
+      }
+
+      // Return parents to collection
+      parent1.location = 'collection';
+      parent2.location = 'collection';
+    });
+
+    // Reset breeding program
+    program.active = false;
+    program.lineage1Id = null;
+    program.lineage2Id = null;
+    program.progress = 0;
+    program.startTime = null;
+    program.estimatedDuration = null;
+    program.lastUpdateTime = null;
+    return;
+  }
+
+  // Calculate offspring genetics (normal breeding)
   const offspringData = calculateOffspring(parent1, parent2);
   if (!offspringData) {
     console.error('Failed to calculate offspring');
@@ -190,7 +237,7 @@ export function completeBreeding(programSlot) {
   }
 
   // Create new specimen
-  const newBird = createSpecimen(
+  newBird = createSpecimen(
     offspringData.biome,
     offspringData.distinction,
     offspringData.traits,
@@ -241,6 +288,29 @@ export function unlockBreedingProgram(programSlot) {
 }
 
 export function checkLegendaryEligibility(parent1, parent2) {
-  // TODO: Implement in Stage 6
-  return false;
+  if (!gameState || !parent1 || !parent2) return false;
+
+  // 1. Both parents must be 5-star (⭐⭐⭐⭐⭐)
+  if (parent1.distinction !== 5 || parent2.distinction !== 5) return false;
+
+  // 2. Both must be from same biome
+  if (parent1.biome !== parent2.biome) return false;
+
+  // 3. Crystal for that biome must be unlocked
+  const biome = parent1.biome;
+  if (!gameState.crystals.includes(biome)) return false;
+
+  // 4. Probability roll (10% base + guest bonuses)
+  const baseChance = 0.10;
+
+  // Check for Supremacy trait bonus (from TRAITS constant)
+  const guests = getActiveGuests();
+  const hasSupremacy = guests.some(g => g.traits.includes('supremacy'));
+  const bonusChance = hasSupremacy ? 0.10 : 0;
+
+  const totalChance = Math.min(1.0, baseChance + bonusChance);
+
+  console.log(`Legendary check: biome=${biome}, crystal=${gameState.crystals.includes(biome)}, chance=${totalChance}`);
+
+  return Math.random() < totalChance;
 }

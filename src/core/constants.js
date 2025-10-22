@@ -19,13 +19,43 @@ export const FORAGER_DURATION = {
 
 export const MANUAL_TAP_SEEDS = 10; // Seeds earned per manual tap
 
-// === SURVEY SYSTEM ===
+// === BIOME SYSTEM ===
 export const BIOMES = [
-  { id: 'forest', observationCost: 10, progressPerTap: 5 },
-  { id: 'mountain', observationCost: 50, progressPerTap: 3 },
-  { id: 'coastal', observationCost: 400, progressPerTap: 2 },
-  { id: 'arid', observationCost: 5000, progressPerTap: 1 },
-  { id: 'tundra', observationCost: 100000, progressPerTap: 0.5 }
+  {
+    id: 'forest',
+    name: 'Forest',
+    unlockRequirement: 1, // ⭐ (always unlocked)
+    observationCost: 10,
+    progressPerTap: 5
+  },
+  {
+    id: 'mountain',
+    name: 'Mountain',
+    unlockRequirement: 2, // ⭐⭐
+    observationCost: 50,
+    progressPerTap: 3
+  },
+  {
+    id: 'coastal',
+    name: 'Coastal',
+    unlockRequirement: 3, // ⭐⭐⭐
+    observationCost: 400,
+    progressPerTap: 2
+  },
+  {
+    id: 'arid',
+    name: 'Arid',
+    unlockRequirement: 4, // ⭐⭐⭐⭐
+    observationCost: 5000,
+    progressPerTap: 1
+  },
+  {
+    id: 'tundra',
+    name: 'Tundra',
+    unlockRequirement: 5, // ⭐⭐⭐⭐⭐
+    observationCost: 100000,
+    progressPerTap: 0.5
+  }
 ];
 
 export const ASSISTANT_TAP_RATE = {
@@ -77,24 +107,26 @@ export const IMMEDIATE_RESTORE_COOLDOWN = 0.1; // Cooldown = 1/10th of groom tim
 
 // === UNLOCK COSTS ===
 export const UNLOCK_COSTS = {
-  foragers: [0, 500, 5000],
+  // Per-biome forager slot unlock costs
+  // Each biome's slots cost 5x more than the previous biome's equivalent slot
+  biomeForagers: {
+    forest: [0, 500, 5000],
+    mountain: [0, 2500, 25000],
+    coastal: [0, 12500, 125000],
+    arid: [0, 62500, 625000],
+    tundra: [0, 312500, 3125000]
+  },
   perches: [0, 500, 2500, 15000, 100000],
   breedingPrograms: [0, 2500, 25000],
   maturation: 100
 };
 
-// === PRESTIGE SYSTEM ===
-export const REORGANIZATION_SPECIES_THRESHOLD = 15;
+// === PRESTIGE SYSTEM (Crystal-based) ===
+// Crystal unlock order (1 per prestige)
+export const PRESTIGE_BIOME_ORDER = ['forest', 'mountain', 'coastal', 'arid', 'tundra'];
 
-export const ENHANCEMENT_MULTIPLIERS = {
-  seeds_income: [1, 2, 4, 8, 16, 32],
-  breeding_time_reduction: [0, 0.1, 0.2, 0.3, 0.4, 0.5],
-  legendary_chance_boost: [0, 0.1, 0.15, 0.25, 0.4, 1.0],
-  trait_inheritance_boost: [0, 0.05, 0.05, 0.05, 0.05, 0.05]
-};
-
-// Enhancement progression order
-export const ENHANCEMENT_ORDER = ['forest', 'mountain', 'coastal', 'arid', 'tundra'];
+// Base chance for legendary breeding (10%)
+export const LEGENDARY_BREEDING_BASE_CHANCE = 0.10;
 
 // === OFFLINE PROGRESS ===
 export const OFFLINE_CAP_HOURS = 24;
@@ -257,7 +289,7 @@ export const GAME_CONFIG = {
   UI_LOOP_FPS: 10,                 // UI display updates
   STARTING_SEEDS: 100,
   STARTING_SURVEY_PROGRESS: 80,    // Forest starts at 80% for tutorial
-  VERSION: 1
+  VERSION: 2  // Incremented for biome refactor
 };
 
 // === UI SETTINGS ===

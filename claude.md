@@ -355,27 +355,37 @@ Offspring biome: 50% Forest, 50% Mountain
 
 ---
 
-## STAGE 5: Prestige & Offline Progress (45 minutes)
+## STAGE 5: Crystal Prestige & Offline Progress (45 minutes)
 
 ### Goal
-Reorganization mechanic and offline progress calculation
+Crystal-based prestige mechanic and offline progress calculation
+
+### Updated Prestige Design
+**CHANGED FROM ORIGINAL**: Prestige is now crystal-based, not enhancement-based
+- **Trigger**: Available after unlocking Tundra (5th biome)
+- **Prestige UI**: Appears as 6th "Prestige" biome card in Wilds after Tundra unlocked
+- **Crystal System**: Unlocks 1 crystal per prestige, in order: Forest → Mountain → Coastal → Arid → Tundra
+- **Reset**: Keep only 5 birds from sanctuary perches (reset to 100% vitality + immature)
+- **Hard Reset**: Seeds → 0, all biomes re-lock except Forest, all other birds removed
+- **Sanctuary Display**: 5 crystal slots shown horizontally at top of Sanctuary screen
 
 ### Tasks
-1. **Catalogued species tracker** - Track unique species names
-2. **Reorganization check** - Enable at 15 species
-3. **Reorganization UI** - Confirmation modal with warnings
-4. **Reset logic** - Clear non-perched birds, surveys, assignments
-5. **Enhancement system** - Grant territory enhancement
-6. **Multiplier application** - 2x/4x/8x/16x/32x Seeds income
-7. **Territory background** - Change Sanctuary visual
-8. **Offline progress** - Calculate elapsed time, apply caps
-9. **Offline summary** - Modal showing Seeds earned, birds hatched
+1. **Crystal state** - Add `crystals: []` array to track unlocked biome crystals
+2. **Prestige check** - Enable when Tundra unlocked + 5 birds on perches
+3. **Prestige UI** - 6th biome card in Wilds, opens confirmation modal
+4. **Crystal display** - 5 horizontal slots at top of Sanctuary
+5. **Reset logic** - Keep 5 perched birds (reset to fresh), remove everything else
+6. **Sequential unlock** - Award next crystal in sequence (forest → mountain → coastal → arid → tundra)
+7. **Offline progress** - Calculate elapsed time, apply caps
+8. **Offline summary** - Modal showing Seeds earned, birds hatched
 
 ### Deliverable
-Working prestige loop:
-- Catalogue 15 species → Reorganization available
-- Perform Reorganization → keep perched birds only
-- Seeds income doubles
+Working crystal prestige loop:
+- Unlock Tundra biome → "Prestige" 6th biome appears in Wilds
+- Perform prestige → keep 5 perched birds, award Forest crystal
+- Birds reset to 100% vitality + immature status
+- All biomes re-lock except Forest
+- Crystal displayed at top of Sanctuary
 - Return after 1 hour offline → progress calculated
 - Offline summary shows what happened
 
@@ -383,18 +393,22 @@ Working prestige loop:
 ```
 src/
 ├── systems/
-│   ├── prestige.js (COMPLETE)
+│   ├── prestige.js (COMPLETE - NEW)
 │   └── offline.js (COMPLETE)
 └── ui/
-    └── modals.js (reorganization, offline summary)
+    ├── sanctuary.js (add crystal display)
+    ├── wilds.js (add prestige biome card)
+    └── modals.js (prestige confirmation, offline summary)
 ```
 
 ### Testing
-- ✅ Reorganization requires 15 species
-- ✅ Non-perched birds removed
-- ✅ Perched birds survive
-- ✅ Forest Enhancement granted
-- ✅ Seeds income 2x multiplier works
+- ✅ Prestige available after Tundra unlocked
+- ✅ Prestige modal shows warning and next crystal
+- ✅ Non-perched birds removed on prestige
+- ✅ 5 perched birds kept, reset to 100% vitality + immature
+- ✅ Forest crystal awarded after 1st prestige
+- ✅ Biomes re-lock except Forest
+- ✅ Crystal displays correctly in Sanctuary
 - ✅ Close game 10 minutes → reopen → 10 min progress applied
 - ✅ Offline progress capped at 24 hours
 - ✅ Offline summary displays correctly
@@ -406,25 +420,36 @@ src/
 ### Goal
 Legendary breeding system, narrative beats, final polish
 
+### Updated Legendary System
+**CHANGED FROM ORIGINAL**: Legendaries now require crystals, not enhancements
+- **Requirements**: Both parents must be 5-star (⭐⭐⭐⭐⭐) from same biome
+- **Crystal Gate**: That biome's crystal must be unlocked via prestige
+- **Breeding Chance**: 10% base chance (no scaling, can add guest bonuses)
+- **Win Condition**: Breed all 5 legendaries AND place them all on sanctuary perches simultaneously
+- **Biome Display**: Show biome icon/name in breeding parent selection UI
+
 ### Tasks
-1. **Legendary detection** - Check 5 requirements on breeding
-2. **Legendary generation** - Create legendary specimen
-3. **Field Guide UI** - Show all catalogued species, 5 legendary slots
-4. **Narrative system** - Modal with Administrator character
-5. **Narrative triggers** - 10 story beats throughout progression
-6. **Completion screen** - All 5 legendaries → full reveal
-7. **Screenshot feature** - "CAPTURE" button (countdown, hide UI)
-8. **Final polish** - CSS animations, transitions, hover states
-9. **Balance testing** - Verify progression timeline (2hr to first legendary)
-10. **Build & deploy** - Production build to Netlify
+1. **Legendary detection** - Check crystal + 5-star same-biome requirements
+2. **Legendary generation** - Create legendary specimen from LEGENDARIES constant
+3. **Biome display** - Show biome info in Hatchery parent selection
+4. **Win condition** - Check if all 5 legendaries on perches
+5. **Field Guide UI** - Show all catalogued species, 5 legendary slots
+6. **Narrative system** - Modal with Administrator character
+7. **Narrative triggers** - 10 story beats throughout progression
+8. **Completion screen** - All 5 legendaries on perches → full reveal
+9. **Screenshot feature** - "CAPTURE" button (countdown, hide UI)
+10. **Final polish** - CSS animations, transitions, hover states
+11. **Balance testing** - Verify progression timeline
+12. **Build & deploy** - Production build to Netlify
 
 ### Deliverable
 Complete game:
-- Breed Epic parents with Luminescence + Supremacy → Legendary
+- Prestige to unlock crystal → Breed 2x 5-star same-biome parents → Legendary
 - Legendary reveals extinction lore
+- Biome shown in breeding UI
+- All 5 legendaries on perches → win screen
 - Narrative beats guide player
 - Field Guide shows collection progress
-- All 5 legendaries → completion screen
 - Screenshot feature works
 - Deployed to Netlify
 
@@ -432,40 +457,33 @@ Complete game:
 ```
 src/
 ├── systems/
-│   └── breeding.js (add legendary check)
+│   └── breeding.js (update legendary check)
+├── data/
+│   └── species.js (add createLegendarySpecimen)
 ├── ui/
+│   ├── hatchery.js (add biome display)
+│   ├── sanctuary.js (check win condition)
 │   ├── modals.js (narrative, completion)
 │   ├── fieldGuide.js (COMPLETE)
 │   └── screenshot.js (COMPLETE)
-├── data/
-│   └── narrative.js (all story text)
 └── styles.css (polish animations)
 ```
 
 ### Legendary Requirements Check
 ```javascript
-function checkLegendaryEligibility(parent1, parent2, programSlot) {
-  // 1. Enhancement exists for biome
-  const biome = parent1.biome; // Both must match
-  if (!gameState.enhancements.includes(biome)) return false;
+function checkLegendaryEligibility(parent1, parent2) {
+  // 1. Both parents must be 5-star (⭐⭐⭐⭐⭐)
+  if (parent1.distinction !== 5 || parent2.distinction !== 5) return false;
 
-  // 2. Both parents Epic (⭐⭐⭐⭐) from same biome
-  if (parent1.distinction !== 4 || parent2.distinction !== 4) return false;
+  // 2. Both must be from same biome
   if (parent1.biome !== parent2.biome) return false;
 
-  // 3. One parent has Luminescence
-  const hasLuminescence = parent1.traits.includes('luminescence') ||
-                          parent2.traits.includes('luminescence');
-  if (!hasLuminescence) return false;
+  // 3. Crystal for that biome must be unlocked
+  const biome = parent1.biome;
+  if (!gameState.crystals.includes(biome)) return false;
 
-  // 4. Other parent has Supremacy
-  const hasSupremacy = parent1.traits.includes('supremacy') ||
-                       parent2.traits.includes('supremacy');
-  if (!hasSupremacy) return false;
-
-  // 5. Probability roll (10% per Enhancement)
-  const enhancementCount = gameState.enhancements.length;
-  const baseChance = enhancementCount === 5 ? 1.0 : enhancementCount * 0.10;
+  // 4. Probability roll (10% base + guest bonuses)
+  const baseChance = 0.10;
   const bonusChance = calculateDistinguishedGuestBonus('legendary_breeding_chance');
   const totalChance = baseChance + bonusChance;
 

@@ -1,19 +1,56 @@
 // SANCTUARY - Sanctuary UI (Perches, Collection, Bonuses)
 import { gameState, getBirdById } from '../core/state.js';
 import { assignPerch, unassignPerch, unlockPerchSlot, instantRestore, matureBird, calculateGuestBonuses } from '../systems/sanctuary.js';
-import { RARITY, TRAITS } from '../core/constants.js';
+import { RARITY, TRAITS, PRESTIGE_BIOME_ORDER } from '../core/constants.js';
 import { updateWildsUI } from './wilds.js';
 
 export function initSanctuaryUI() {
+  renderCrystals();
   renderPerches();
   renderCollection();
   renderBonuses();
 }
 
 export function updateSanctuaryUI() {
+  renderCrystals();
   renderPerches();
   renderCollection();
   renderBonuses();
+  checkWinCondition();
+}
+
+// Render crystal display (5 squares below Distinguished Guests)
+export function renderCrystals() {
+  const container = document.getElementById('crystals-container');
+  if (!container || !gameState) return;
+
+  container.innerHTML = '';
+
+  // Create 5 crystal slots in order
+  PRESTIGE_BIOME_ORDER.forEach((biomeId, index) => {
+    const crystalSlot = document.createElement('div');
+    crystalSlot.className = 'crystal-slot';
+    crystalSlot.dataset.biome = biomeId;
+
+    const isUnlocked = gameState.crystals.includes(biomeId);
+    const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+
+    if (isUnlocked) {
+      crystalSlot.classList.add('unlocked');
+      crystalSlot.innerHTML = `
+        <div class="crystal-icon">💎</div>
+        <div class="crystal-label">${biomeName}</div>
+      `;
+    } else {
+      crystalSlot.classList.add('locked');
+      crystalSlot.innerHTML = `
+        <div class="crystal-icon">🕳️</div>
+        <div class="crystal-label">${biomeName}</div>
+      `;
+    }
+
+    container.appendChild(crystalSlot);
+  });
 }
 
 // Render perch slots
@@ -546,5 +583,79 @@ export function renderBonuses() {
     tag.className = 'bonus-tag';
     tag.textContent = `${bonus.label}: ${bonus.value}`;
     container.appendChild(tag);
+  });
+}
+
+// Check win condition: all 5 legendaries on perches
+let winConditionShown = false;
+
+export function checkWinCondition() {
+  if (!gameState || winConditionShown) return;
+
+  // Check if all 5 legendaries have been acquired
+  if (gameState.legendariesAcquired.length < 5) return;
+
+  // Check if all 5 perched birds are legendaries
+  const perchedLegendaries = [];
+  gameState.perches.forEach(perch => {
+    if (perch.birdId) {
+      const bird = getBirdById(perch.birdId);
+      if (bird && bird.isLegendary) {
+        perchedLegendaries.push(bird);
+      }
+    }
+  });
+
+  // Win condition: all 5 unique legendaries on perches
+  if (perchedLegendaries.length === 5) {
+    // Check that all 5 are unique biomes
+    const uniqueBiomes = new Set(perchedLegendaries.map(b => b.biome));
+    if (uniqueBiomes.size === 5) {
+      winConditionShown = true;
+      showWinScreen();
+    }
+  }
+}
+
+function showWinScreen() {
+  const modal = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <h2 style="text-align: center; margin-bottom: 20px;">🏆 Collection Complete! 🏆</h2>
+    <div style="text-align: center; line-height: 1.8;">
+      <p style="font-size: 18px; margin-bottom: 15px;">
+        You have successfully preserved all five legendary species.
+      </p>
+      <p style="margin-bottom: 15px;">
+        Through countless generations and prestigious achievements,
+        you have brought back these extinct birds from the brink.
+      </p>
+      <p style="margin-bottom: 15px;">
+        Your sanctuary now houses:
+      </p>
+      <div style="margin: 20px 0;">
+        <div>💎 Greater Prairie-Chicken</div>
+        <div>💎 Ivory-billed Woodpecker</div>
+        <div>💎 Caribbean Flamingo</div>
+        <div>💎 Great Blue Heron</div>
+        <div>💎 Emperor Penguin</div>
+      </div>
+      <p style="font-style: italic; margin-top: 20px;">
+        A reminder of what was lost... and what can be preserved.
+      </p>
+      <p style="margin-top: 30px;">
+        <strong>Thank you for playing Rare Plumage!</strong>
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button id="close-win-btn" class="primary-btn">Continue Playing</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+
+  content.querySelector('#close-win-btn').addEventListener('click', () => {
+    modal.classList.add('hidden');
   });
 }

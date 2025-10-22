@@ -12,27 +12,32 @@ function createDefaultState() {
     seeds: GAME_CONFIG.STARTING_SEEDS,
     totalSeedsEarned: GAME_CONFIG.STARTING_SEEDS,
 
-    // Prestige
-    enhancements: [],
-    currentTerritory: 'forest',
-    reorganizationCount: 0,
+    // Prestige (Crystal-based)
+    crystals: [], // Array of unlocked biome IDs: ['forest', 'mountain', etc.]
+    prestigeCount: 0,
 
-    // Foragers (3 slots)
-    foragers: [
-      { slot: 0, birdId: null, unlocked: true, unlockCost: 0, assignedAt: null, accumulatedSeeds: 0 },
-      { slot: 1, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.foragers[1], assignedAt: null, accumulatedSeeds: 0 },
-      { slot: 2, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.foragers[2], assignedAt: null, accumulatedSeeds: 0 }
-    ],
-
-    // Surveys (5 biomes)
-    surveys: BIOMES.map(biome => ({
+    // Biomes - each contains 3 forager slots + 1 survey slot
+    biomes: BIOMES.map((biome, index) => ({
       id: biome.id,
-      biome: biome.id,
-      progress: biome.id === 'forest' ? GAME_CONFIG.STARTING_SURVEY_PROGRESS : 0,
-      assistantId: null,
-      observationCost: biome.observationCost,
-      progressPerTap: biome.progressPerTap,
-      lastUpdateTime: null
+      name: biome.name,
+      unlocked: index === 0, // Only forest unlocked initially
+      unlockRequirement: biome.unlockRequirement, // ⭐ distinction required
+
+      // 3 forager slots per biome
+      foragers: [
+        { slot: 0, birdId: null, unlocked: true, unlockCost: 0, assignedAt: null, accumulatedSeeds: 0 },
+        { slot: 1, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.biomeForagers[biome.id][1], assignedAt: null, accumulatedSeeds: 0 },
+        { slot: 2, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.biomeForagers[biome.id][2], assignedAt: null, accumulatedSeeds: 0 }
+      ],
+
+      // Survey slot
+      survey: {
+        progress: index === 0 ? GAME_CONFIG.STARTING_SURVEY_PROGRESS : 0,
+        surveyorId: null, // Bird assigned to survey
+        observationCost: biome.observationCost,
+        progressPerTap: biome.progressPerTap,
+        lastUpdateTime: null
+      }
     })),
 
     // Perches (5 slots)
