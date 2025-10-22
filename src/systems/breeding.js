@@ -113,6 +113,8 @@ export function startBreeding(parent1Id, parent2Id, programSlot) {
   parent2.location = `breeding_${programSlot}`;
   parent1.isMature = false;
   parent2.isMature = false;
+  parent1.maturityProgress = 0; // Reset maturity progress
+  parent2.maturityProgress = 0;
   parent1.vitalityPercent = 100; // Reset vitality
   parent2.vitalityPercent = 100;
 

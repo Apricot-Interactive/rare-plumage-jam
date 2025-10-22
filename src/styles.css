@@ -661,7 +661,7 @@ button.danger {
   max-width: 320px;
   width: 100%;
   max-height: 80vh;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   animation: modalSlideIn var(--transition-normal);
@@ -700,6 +700,42 @@ button.danger {
   line-height: 1.6;
   color: var(--text-secondary);
   margin-bottom: var(--space-md);
+}
+
+/* Prestige warning styles */
+.prestige-warning {
+  margin-bottom: var(--space-md);
+}
+
+.prestige-crystal-preview {
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
+.crystal-icon-large {
+  font-size: 48px;
+  margin-bottom: var(--space-xs);
+}
+
+.crystal-name {
+  font-family: var(--font-header);
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.prestige-warning-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  padding: var(--space-sm);
+  background: var(--bg-primary);
+  border-radius: 4px;
+  max-width: 100%;
+  overflow-wrap: break-word;
 }
 
 .modal-actions {
@@ -883,6 +919,33 @@ button.danger {
   margin-bottom: var(--space-sm);
 }
 
+/* Offline progress summary */
+.offline-summary {
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.offline-time {
+  font-size: 16px;
+  margin-bottom: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.offline-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.offline-stat {
+  font-size: 18px;
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
 .primary-btn {
   background-color: var(--info) !important;
   color: var(--text-primary) !important;
@@ -987,12 +1050,12 @@ button.danger {
 .option-title {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: white;
 }
 
 .option-subtitle {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: white;
 }
 
 .empty-message {
@@ -1577,9 +1640,9 @@ button.danger {
   cursor: default;
 }
 
-/* Perch Card Top (Image Area) */
+/* Perch Card Top (Image Area) - Fixed to 1/3 height */
 .perch-card-top {
-  flex: 1;
+  flex: 0 0 33.333%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1643,13 +1706,16 @@ button.danger {
   z-index: 1;
 }
 
-/* Perch Card Bottom (Info Area) */
+/* Perch Card Bottom (Info Area) - Fixed to 2/3 height with scroll */
 .perch-card-bottom {
+  flex: 0 0 66.666%;
   padding: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   text-align: center;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .perch-unlock-cost {
@@ -1950,6 +2016,13 @@ button.danger {
   font-size: 11px;
 }
 
+.parent-info .bird-rarity-biome {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 2px;
+}
+
 .parent-info .breeding-icon {
   font-size: 20px;
 }
@@ -2044,6 +2117,37 @@ button.danger {
 
 .parent-select-box:hover .select-prompt {
   color: var(--text-primary);
+}
+
+.parent-select-box .bird-rarity-biome {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.mature-btn-inline {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background-color: var(--bg-accent);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mature-btn-inline:hover:not(:disabled) {
+  background-color: var(--info);
+  border-color: var(--info);
+}
+
+.mature-btn-inline:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .start-breeding-btn {
@@ -2669,12 +2773,13 @@ button.danger {
 }
 
 .surveyor-slot.empty {
-  border-color: var(--border-light);
-  background: var(--bg-primary);
+  border: none;
+  background: transparent;
 }
 
 .surveyor-slot.active {
-  border-color: transparent;
+  border: none;
+  background: transparent;
 }
 
 .surveyor-icon {

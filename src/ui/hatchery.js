@@ -1,12 +1,26 @@
 // SANCTUARY - Hatchery UI
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
 import { startBreeding, manualIncubate, unlockBreedingProgram } from '../systems/breeding.js';
-import { UNLOCK_COSTS, RARITY, TRAITS } from '../core/constants.js';
+import { matureBird } from '../systems/sanctuary.js';
+import { UNLOCK_COSTS, RARITY, TRAITS, MATURITY_COSTS } from '../core/constants.js';
+import { formatCompact } from '../utils/numbers.js';
 
 let selectedParent1 = null;
 let selectedParent2 = null;
 let currentSelectingProgram = null;
 let currentSelectingParent = null; // 1 or 2
+
+// Helper function to get biome emoji
+function getBiomeEmoji(biome) {
+  const biomeEmojis = {
+    forest: '🌲',
+    mountain: '🏔️',
+    coastal: '🌊',
+    arid: '🏜️',
+    tundra: '❄️'
+  };
+  return biomeEmojis[biome] || '🌿';
+}
 
 // Celebration overlay function
 export function showBreedingCelebration(newBird, parent1, parent2, programSlot) {
@@ -134,16 +148,12 @@ export function renderBreedingPrograms() {
           <div class="parent-info">
             <div class="parent">
               <span class="bird-name">${parent1?.speciesName || 'Unknown'}</span>
-              <span class="bird-rarity">${RARITY[parent1?.distinction]?.stars || ''}</span>
-              ${parent1 ? `<span class="bird-biome-small">🌿 ${parent1.biome.charAt(0).toUpperCase() + parent1.biome.slice(1)}</span>` : ''}
-              ${parent1 ? `<span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
+              ${parent1 ? `<span class="bird-rarity-biome">${RARITY[parent1.distinction]?.stars || ''} ${getBiomeEmoji(parent1.biome)}</span>` : ''}
             </div>
             <span class="breeding-icon">💕</span>
             <div class="parent">
               <span class="bird-name">${parent2?.speciesName || 'Unknown'}</span>
-              <span class="bird-rarity">${RARITY[parent2?.distinction]?.stars || ''}</span>
-              ${parent2 ? `<span class="bird-biome-small">🌿 ${parent2.biome.charAt(0).toUpperCase() + parent2.biome.slice(1)}</span>` : ''}
-              ${parent2 ? `<span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>` : ''}
+              ${parent2 ? `<span class="bird-rarity-biome">${RARITY[parent2.distinction]?.stars || ''} ${getBiomeEmoji(parent2.biome)}</span>` : ''}
             </div>
           </div>
           <div class="breeding-progress">
@@ -180,18 +190,29 @@ export function renderBreedingPrograms() {
           <div class="parent-selection">
             <button class="parent-select-box" data-parent="1" data-program="${program.program}">
               ${parent1
-                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity">${RARITY[parent1.distinction]?.stars || ''}</span><span class="bird-biome-small">🌿 ${parent1.biome.charAt(0).toUpperCase() + parent1.biome.slice(1)}</span><span class="bird-traits-small">${parent1.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
+                ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity-biome">${RARITY[parent1.distinction]?.stars || ''} ${getBiomeEmoji(parent1.biome)}</span>${!parent1.isMature ? (() => {
+                  const totalCost = MATURITY_COSTS[parent1.distinction] || 100;
+                  const costPerTap = Math.ceil(totalCost * 0.1);
+                  const maturityPercent = parent1.maturityProgress || 0;
+                  const canAfford = gameState.seeds >= costPerTap;
+                  return '<button class="mature-btn-inline" data-bird-id="' + parent1.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(costPerTap) + '🫘</button>';
+                })() : ''}`
                 : '<span class="select-prompt">Select Parent 1</span>'}
             </button>
             <span class="breeding-icon">💕</span>
             <button class="parent-select-box" data-parent="2" data-program="${program.program}">
               ${parent2
-                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity">${RARITY[parent2.distinction]?.stars || ''}</span><span class="bird-biome-small">🌿 ${parent2.biome.charAt(0).toUpperCase() + parent2.biome.slice(1)}</span><span class="bird-traits-small">${parent2.traits.map(t => TRAITS[t]?.name || t).join(', ')}</span>`
+                ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity-biome">${RARITY[parent2.distinction]?.stars || ''} ${getBiomeEmoji(parent2.biome)}</span>${!parent2.isMature ? (() => {
+                  const totalCost = MATURITY_COSTS[parent2.distinction] || 100;
+                  const costPerTap = Math.ceil(totalCost * 0.1);
+                  const maturityPercent = parent2.maturityProgress || 0;
+                  const canAfford = gameState.seeds >= costPerTap;
+                  return '<button class="mature-btn-inline" data-bird-id="' + parent2.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(costPerTap) + '🫘</button>';
+                })() : ''}`
                 : '<span class="select-prompt">Select Parent 2</span>'}
             </button>
           </div>
-          <button class="start-breeding-btn" data-program="${program.program}"
-            ${(!parent1 || !parent2) ? 'disabled' : ''}>
+          <button class="start-breeding-btn" data-program="${program.program}">
             Start Breeding
           </button>
         </div>
@@ -213,18 +234,44 @@ export function renderBreedingPrograms() {
         showBirdSelectionModal();
       });
 
+      // Mature button handlers (if present)
+      const matureBtns = programDiv.querySelectorAll('.mature-btn-inline');
+      matureBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Don't trigger parent box click
+          const birdId = btn.dataset.birdId;
+          const bird = getBirdById(birdId);
+          if (bird && matureBird(birdId)) {
+            updateHatcheryUI();
+          } else {
+            alert('Not enough Seeds for maturation!');
+          }
+        });
+      });
+
       // Start breeding button
       const startBtn = programDiv.querySelector('.start-breeding-btn');
       startBtn.addEventListener('click', () => {
-        if (parent1 && parent2) {
-          if (startBreeding(parent1.id, parent2.id, program.program)) {
-            // Clear selections for this program
-            if (selectedParent1?.programSlot === program.program) selectedParent1 = null;
-            if (selectedParent2?.programSlot === program.program) selectedParent2 = null;
-            updateHatcheryUI();
-          } else {
-            alert('Failed to start breeding. Ensure both birds are mature.');
-          }
+        // Check if we have both parents
+        if (!parent1 || !parent2) {
+          showBreedingRequirementsModal('You must select two parents before breeding.');
+          return;
+        }
+
+        // Check if both parents are mature
+        if (!parent1.isMature || !parent2.isMature) {
+          showBreedingRequirementsModal('Both parents must be 100% mature before breeding. Use the Mature button to mature them.');
+          return;
+        }
+
+        // Attempt to start breeding
+        if (startBreeding(parent1.id, parent2.id, program.program)) {
+          // Clear selections for this program
+          if (selectedParent1?.programSlot === program.program) selectedParent1 = null;
+          if (selectedParent2?.programSlot === program.program) selectedParent2 = null;
+          updateHatcheryUI();
+        } else {
+          showBreedingRequirementsModal('Failed to start breeding. Please ensure both birds are available and mature.');
         }
       });
     }
@@ -355,12 +402,7 @@ function showBirdSelectionModal() {
 
       if (!bird) return;
 
-      // Check if bird is immature
-      if (!bird.isMature) {
-        showImmatureBirdMessage();
-        return;
-      }
-
+      // Allow selection of immature birds - they can be matured in the parent box
       // Assign bird as parent
       if (currentSelectingParent === 1) {
         selectedParent1 = { bird, programSlot: currentSelectingProgram };
@@ -390,12 +432,33 @@ function showImmatureBirdMessage() {
     </p>
     <p class="modal-message">
       Visit the Sanctuary to nurture it. Assign the bird to a Perch slot to restore vitality,
-      then spend 100 Seeds to mature it for breeding.
+      then spend Seeds to mature it for breeding.
     </p>
     <div class="modal-actions">
       <button id="close-message-btn">Understood</button>
     </div>
   `;
+
+  content.querySelector('#close-message-btn').addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+}
+
+function showBreedingRequirementsModal(message) {
+  const modal = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  content.innerHTML = `
+    <h3>Cannot Start Breeding</h3>
+    <p class="modal-message">
+      ${message}
+    </p>
+    <div class="modal-actions">
+      <button id="close-message-btn">Understood</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
 
   content.querySelector('#close-message-btn').addEventListener('click', () => {
     modal.classList.add('hidden');
