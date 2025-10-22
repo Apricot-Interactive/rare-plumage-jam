@@ -1,9 +1,9 @@
 // SANCTUARY - Wilds UI (Biome-based)
 import { gameState, getBirdById, addSeeds } from '../core/state.js';
-import { assignForager, unassignForager, unlockForagerSlot } from '../systems/foragers.js';
+import { assignForager, unassignForager, unlockForagerSlot, calculateForagerSlotIncome } from '../systems/foragers.js';
 import { observeSurvey, assignSurveyor, unassignSurveyor, getBiomeTapRate, unlockBiome } from '../systems/surveys.js';
-import { canPrestige, performPrestige, getPrestigeWarningMessage } from '../systems/prestige.js';
-import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE } from '../core/constants.js';
+import { canPrestige, performPrestige, getPrestigeWarningMessage, PRESTIGE_COST } from '../systems/prestige.js';
+import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE, UNLOCK_COSTS, SURVEY_COSTS, FORAGER_BASE_RATES } from '../core/constants.js';
 import { updateSanctuaryUI } from './sanctuary.js';
 
 // Celebration overlay function - now fits within biome rectangle
@@ -110,10 +110,18 @@ export function updateSurveyProgressUI() {
     const biomeCard = document.querySelector(`.biome-card[data-biome-id="${biome.id}"]`);
     if (!biomeCard) return;
 
+    const totalCost = SURVEY_COSTS[biome.id] || 360;
+    const progressPercent = Math.min(100, (biome.survey.progress / totalCost) * 100);
+
     const progressFill = biomeCard.querySelector('.progress-bar-fill');
     if (progressFill) {
-      const progressPercent = Math.floor(biome.survey.progress);
       progressFill.style.width = `${progressPercent}%`;
+    }
+
+    const progressText = biomeCard.querySelector('.progress-text');
+    if (progressText) {
+      const current = Math.floor(biome.survey.progress);
+      progressText.textContent = `${current.toLocaleString()} / ${totalCost.toLocaleString()}`;
     }
   });
 }
@@ -153,6 +161,8 @@ function createBiomeCard(biome, index) {
     const hasRequiredBird = gameState.specimens.some(
       bird => bird.distinction >= biome.unlockRequirement
     );
+    const seedCost = UNLOCK_COSTS.biomeUnlock[biome.id] || 0;
+    const canAfford = gameState.seeds >= seedCost;
 
     card.innerHTML = `
       <div class="biome-locked-content">
@@ -162,12 +172,14 @@ function createBiomeCard(biome, index) {
         <div class="biome-locked-right">
           <h3>${biome.name}</h3>
           <div class="unlock-requirement">${RARITY[biome.unlockRequirement].stars} Bird Required</div>
-          ${hasRequiredBird ? '<button class="unlock-biome-btn">Unlock Biome</button>' : ''}
+          <div class="unlock-requirement">${seedCost.toLocaleString()} 🫘 Required</div>
+          ${hasRequiredBird && canAfford ? `<button class="unlock-biome-btn">Unlock Biome</button>` : ''}
+          ${hasRequiredBird && !canAfford ? `<div class="unlock-requirement">Need ${(seedCost - gameState.seeds).toLocaleString()} more seeds</div>` : ''}
         </div>
       </div>
     `;
 
-    if (hasRequiredBird) {
+    if (hasRequiredBird && canAfford) {
       const unlockBtn = card.querySelector('.unlock-biome-btn');
       unlockBtn.addEventListener('click', () => {
         if (unlockBiome(biome.id)) {
@@ -180,7 +192,9 @@ function createBiomeCard(biome, index) {
   }
 
   // Unlocked biome - show full UI
-  const progressPercent = Math.floor(biome.survey.progress);
+  const totalCost = SURVEY_COSTS[biome.id] || 360;
+  const progressPercent = Math.min(100, (biome.survey.progress / totalCost) * 100);
+  const currentProgress = Math.floor(biome.survey.progress);
 
   card.innerHTML = `
     <div class="biome-header">
@@ -208,34 +222,42 @@ function createPrestigeCard() {
   const card = document.createElement('div');
   card.className = 'biome-card prestige-card';
 
-  const eligible = canPrestige();
   const message = getPrestigeWarningMessage();
+  if (!message) return card;
 
-  if (eligible && message) {
+  // Check requirements separately
+  const perchedBirdCount = gameState.perches.filter(p => p.birdId !== null).length;
+  const hasEnoughBirds = perchedBirdCount >= 5;
+  const canAfford = gameState.seeds >= PRESTIGE_COST;
+  const formattedCost = PRESTIGE_COST.toLocaleString();
+
+  // Show button if has enough birds (even if can't afford yet)
+  if (hasEnoughBirds) {
     card.innerHTML = `
       <div class="prestige-content">
-        <div class="prestige-icon">🌟</div>
-        <h3 class="prestige-title">Prestige</h3>
+        <h3 class="prestige-title">Artifact Expedition</h3>
         <div class="prestige-subtitle">Unlock ${message.crystalName} Crystal</div>
-        <button class="prestige-btn">Perform Prestige</button>
+        <button class="prestige-btn" ${!canAfford ? 'disabled' : ''}>
+          ${canAfford ? `Launch Expedition (${formattedCost} 🫘)` : `Need ${formattedCost} 🫘`}
+        </button>
       </div>
     `;
 
     const button = card.querySelector('.prestige-btn');
-    button.addEventListener('click', () => {
-      showPrestigeConfirmation();
-    });
+    if (canAfford) {
+      button.addEventListener('click', () => {
+        showPrestigeConfirmation();
+      });
+    }
   } else {
-    // Not eligible yet
-    const perchedBirdCount = gameState.perches.filter(p => p.birdId !== null).length;
+    // Not enough birds yet
     const remaining = Math.max(0, 5 - perchedBirdCount);
 
     card.innerHTML = `
       <div class="prestige-content locked">
-        <div class="prestige-icon-locked">⭐</div>
-        <h3 class="prestige-title">Prestige</h3>
+        <h3 class="prestige-title">Artifact Expedition</h3>
         <div class="prestige-requirement">
-          ${remaining > 0 ? `Place ${remaining} more bird${remaining > 1 ? 's' : ''} on perches` : 'Ready to prestige!'}
+          Select 5 birds by placing them on perches in the Sanctuary
         </div>
       </div>
     `;
@@ -261,7 +283,7 @@ function showPrestigeConfirmation() {
       <pre class="prestige-warning-text">${message.warning}</pre>
     </div>
     <div class="modal-actions">
-      <button id="confirm-prestige-btn" class="primary-btn danger-btn">Confirm Prestige</button>
+      <button id="confirm-prestige-btn" class="primary-btn danger-btn">Confirm Expedition</button>
       <button id="cancel-prestige-btn">Cancel</button>
     </div>
   `;
@@ -337,7 +359,9 @@ function createForagerSlotHTML(biome, slotIndex) {
 function createSurveySlotHTML(biome) {
   const survey = biome.survey;
   const surveyor = survey.surveyorId ? getBirdById(survey.surveyorId) : null;
-  const progressPercent = Math.floor(survey.progress);
+  const totalCost = SURVEY_COSTS[biome.id] || 360;
+  const progressPercent = Math.min(100, (survey.progress / totalCost) * 100);
+  const currentProgress = Math.floor(survey.progress);
 
   let surveyorIconHTML = '';
   if (surveyor) {
@@ -380,7 +404,7 @@ function createSurveySlotHTML(biome) {
         <div class="progress-bar">
           <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
         </div>
-        <div class="progress-text">${progressPercent}%</div>
+        <div class="progress-text">${currentProgress.toLocaleString()} / ${totalCost.toLocaleString()}</div>
         <div class="surveyor-label slot-label">${surveyor ? (surveyor.customDesignation || surveyor.speciesName) : 'Assign Surveyor'}</div>
       </div>
     </div>
@@ -403,14 +427,25 @@ function attachBiomeEventListeners(card, biome) {
         }
       });
     } else {
-      // Icon wrapper = manual tap for seeds
+      // Icon wrapper = manual tap for seeds (adds 5 seconds of gathering)
       if (iconWrapper) {
         iconWrapper.addEventListener('click', (e) => {
           e.stopPropagation();
-          const tapRewards = [10, 100, 1000];
-          const seeds = tapRewards[slotIndex] || 10;
-          addSeeds(seeds);
-          showFloatingIncome(iconWrapper, seeds);
+
+          let seeds = 0;
+          if (forager.birdId) {
+            // If bird assigned, calculate based on bird stats
+            seeds = calculateForagerSlotIncome(biome.id, slotIndex, forager.birdId) * 5;
+          } else {
+            // If no bird, give base rate * 5 seconds
+            const baseRate = FORAGER_BASE_RATES[biome.id]?.[slotIndex] || 0;
+            seeds = baseRate * 5;
+          }
+
+          if (seeds > 0) {
+            addSeeds(Math.floor(seeds));
+            showFloatingText(iconWrapper, Math.floor(seeds));
+          }
         });
       }
 
@@ -430,8 +465,10 @@ function attachBiomeEventListeners(card, biome) {
     // Circle = manual observe
     surveyorSlot.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (observeSurvey(biome.id)) {
+      const result = observeSurvey(biome.id);
+      if (result.success) {
         updateSurveyProgressUI();
+        // Survey taps are now free - no floating text needed
       }
     });
   }
@@ -449,24 +486,27 @@ function attachBiomeEventListeners(card, biome) {
   const progressBar = card.querySelector('.progress-bar');
   if (progressBar) {
     progressBar.addEventListener('click', () => {
-      if (observeSurvey(biome.id)) {
+      const result = observeSurvey(biome.id);
+      if (result.success) {
         updateSurveyProgressUI();
+        // Survey taps are now free - no floating text needed
       }
     });
   }
 }
 
-// Helper to show floating income animation
-function showFloatingIncome(element, amount) {
+// Helper to show floating text animation
+export function showFloatingText(element, amount, isNegative = false) {
   const floating = document.createElement('div');
-  floating.textContent = `+${amount}`;
+  floating.textContent = amount >= 0 ? `+${amount}` : `${amount}`;
   floating.className = 'floating-income';
+  const color = isNegative || amount < 0 ? '#ff6b6b' : 'var(--currency)';
   floating.style.cssText = `
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: var(--currency);
+    color: ${color};
     font-weight: bold;
     font-size: 18px;
     pointer-events: none;
@@ -478,6 +518,33 @@ function showFloatingIncome(element, amount) {
   element.appendChild(floating);
 
   setTimeout(() => floating.remove(), 1000);
+}
+
+// Keep for backwards compat
+function showFloatingIncome(element, amount) {
+  showFloatingText(element, amount, false);
+}
+
+// Show floating text for forager income (called from game loop)
+export function showForagerIncomeFloatingText() {
+  if (!gameState) return;
+
+  gameState.biomes.forEach(biome => {
+    if (!biome.unlocked) return;
+
+    biome.foragers.forEach((forager, slotIndex) => {
+      if (!forager.birdId) return;
+
+      const income = calculateForagerSlotIncome(biome.id, slotIndex, forager.birdId);
+      if (income <= 0) return;
+
+      // Find the forager slot element using correct attributes
+      const foragerSlot = document.querySelector(`.bird-slot[data-biome-id="${biome.id}"][data-slot-type="forager"][data-slot-index="${slotIndex}"]`);
+      if (foragerSlot) {
+        showFloatingText(foragerSlot, Math.floor(income));
+      }
+    });
+  });
 }
 
 function showBirdSelector(biomeId, slotIndex) {

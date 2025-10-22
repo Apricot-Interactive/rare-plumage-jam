@@ -1,6 +1,56 @@
 // SANCTUARY - Forager System (Biome-based)
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { FORAGER_INCOME, MANUAL_TAP_SEEDS, VITALITY_DRAIN_RATE } from '../core/constants.js';
+import { FORAGER_BASE_RATES, ENERGY_DRAIN_PER_SECOND, ENERGY_CAPACITY, TRAITS } from '../core/constants.js';
+
+// Calculate guest bonuses inline to avoid circular dependency
+function getForagerEfficiencyBonus() {
+  if (!gameState) return 0;
+
+  let bonus = 0;
+  gameState.perches.forEach(perch => {
+    if (!perch.birdId) return;
+
+    const bird = getBirdById(perch.birdId);
+    if (!bird || !bird.traits) return;
+
+    bird.traits.forEach(traitId => {
+      const trait = TRAITS[traitId];
+      if (trait?.guestBonus?.type === 'forager_efficiency') {
+        bonus += trait.guestBonus.value;
+      }
+    });
+  });
+
+  return bonus;
+}
+
+// Calculate income for a specific forager slot
+export function calculateForagerSlotIncome(biomeId, slotIndex, birdId) {
+  if (!birdId) return 0;
+
+  const bird = getBirdById(birdId);
+  if (!bird || bird.vitalityPercent <= 0) return 0;
+
+  // Get base rate for this biome and slot
+  const baseRate = FORAGER_BASE_RATES[biomeId]?.[slotIndex] || 0;
+  if (baseRate === 0) return 0;
+
+  // Multiply by star level
+  let rate = baseRate * bird.distinction;
+
+  // Double if bird is from this biome
+  if (bird.biome === biomeId) {
+    rate *= 2;
+  }
+
+  // Apply guest bonuses (Alacrity trait, etc.)
+  const efficiencyBonus = getForagerEfficiencyBonus();
+  if (efficiencyBonus > 0) {
+    rate *= (1 + efficiencyBonus);
+  }
+
+  return rate;
+}
 
 // Calculate total Seeds income from all foragers across all biomes
 export function calculateForagerIncome() {
@@ -11,20 +61,10 @@ export function calculateForagerIncome() {
   gameState.biomes.forEach(biome => {
     if (!biome.unlocked) return;
 
-    biome.foragers.forEach(forager => {
+    biome.foragers.forEach((forager, slotIndex) => {
       if (!forager.birdId) return;
 
-      const bird = getBirdById(forager.birdId);
-      if (!bird) return;
-
-      // Check vitality
-      if (bird.vitalityPercent <= 0) return;
-
-      // Get base income from bird distinction
-      const baseIncome = FORAGER_INCOME[bird.distinction] || 0;
-
-      // TODO Stage 3: Apply guest bonuses
-      totalIncome += baseIncome;
+      totalIncome += calculateForagerSlotIncome(biome.id, slotIndex, forager.birdId);
     });
   });
 
@@ -34,6 +74,8 @@ export function calculateForagerIncome() {
 // Update vitality for all foragers and surveyors across all biomes
 export function updateForagerVitality(dt) {
   if (!gameState) return;
+
+  const dtSeconds = dt / 1000; // Convert milliseconds to seconds
 
   gameState.biomes.forEach(biome => {
     if (!biome.unlocked) return;
@@ -46,11 +88,12 @@ export function updateForagerVitality(dt) {
       if (!bird) return;
 
       if (bird.vitalityPercent > 0) {
-        const drainPerMinute = VITALITY_DRAIN_RATE[bird.distinction] || 1.0;
-        const drainPerMs = drainPerMinute / 60000;
-        const drainAmount = drainPerMs * dt;
+        // Drain 1 energy per second
+        const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+        const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
+        const percentDrained = (energyDrained / maxEnergy) * 100;
 
-        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - drainAmount);
+        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
       }
     });
 
@@ -58,11 +101,11 @@ export function updateForagerVitality(dt) {
     if (biome.survey.surveyorId) {
       const bird = getBirdById(biome.survey.surveyorId);
       if (bird && bird.vitalityPercent > 0) {
-        const drainPerMinute = VITALITY_DRAIN_RATE[bird.distinction] || 1.0;
-        const drainPerMs = drainPerMinute / 60000;
-        const drainAmount = drainPerMs * dt;
+        const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+        const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
+        const percentDrained = (energyDrained / maxEnergy) * 100;
 
-        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - drainAmount);
+        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
       }
     }
   });
@@ -141,23 +184,50 @@ export function unlockForagerSlot(biomeId, slot) {
   return false;
 }
 
-// Tap a forager slot for manual seeds (deprecated - may remove in refactor)
-export function tapForagerSlot(biomeId, slot) {
+// Calculate manual effectiveness bonus inline to avoid circular dependency
+function getManualEffectivenessBonus() {
+  if (!gameState) return 0;
+
+  let bonus = 0;
+  gameState.perches.forEach(perch => {
+    if (!perch.birdId) return;
+
+    const bird = getBirdById(perch.birdId);
+    if (!bird || !bird.traits) return;
+
+    bird.traits.forEach(traitId => {
+      const trait = TRAITS[traitId];
+      if (trait?.guestBonus?.type === 'manual_effectiveness') {
+        bonus += trait.guestBonus.value;
+      }
+    });
+  });
+
+  return bonus;
+}
+
+// Tap a forager slot for manual seeds - adds 5 seconds of gathering instantly
+export function tapForagerSlot(biomeId, slotIndex) {
   if (!gameState) return 0;
 
   const biome = gameState.biomes.find(b => b.id === biomeId);
   if (!biome || !biome.unlocked) return 0;
 
-  const forager = biome.foragers[slot];
+  const forager = biome.foragers[slotIndex];
   if (!forager || !forager.unlocked) return 0;
 
-  // Tap rewards scale by circle: 10/100/1000
-  const tapRewards = [10, 100, 1000];
-  const seedsEarned = tapRewards[slot] || MANUAL_TAP_SEEDS;
+  // Calculate 5 seconds worth of income for this slot
+  const incomePerSecond = calculateForagerSlotIncome(biomeId, slotIndex, forager.birdId);
+  const seedsEarned = incomePerSecond * 5; // 5 seconds worth
 
-  // TODO Stage 3: Apply manual effectiveness bonuses
+  // Apply manual effectiveness bonuses
+  const manualBonus = getManualEffectivenessBonus();
+  let finalSeeds = seedsEarned;
+  if (manualBonus > 0) {
+    finalSeeds *= (1 + manualBonus);
+  }
 
-  return seedsEarned;
+  return Math.floor(finalSeeds);
 }
 
 // Helper function to unassign a bird from its current location

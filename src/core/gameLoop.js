@@ -5,13 +5,15 @@ import { calculateForagerIncome, updateForagerVitality } from '../systems/forage
 import { updateSurveyProgress } from '../systems/surveys.js';
 import { updateGrooming } from '../systems/sanctuary.js';
 import { updateBreedingProgress } from '../systems/breeding.js';
-import { updateForagerVitalityUI, updateSurveyProgressUI } from '../ui/wilds.js';
-import { updatePerchCooldowns } from '../ui/sanctuary.js';
+import { updateForagerVitalityUI, updateSurveyProgressUI, showForagerIncomeFloatingText } from '../ui/wilds.js';
+import { updatePerchCooldowns, updatePerchVitalityBars } from '../ui/sanctuary.js';
 import { updateBreedingProgressBars } from '../ui/hatchery.js';
 
 let lastFrameTime = Date.now();
 let gameLoopId = null;
 let uiLoopId = null;
+let lastFloatingTextTime = Date.now();
+const FLOATING_TEXT_INTERVAL = 1000; // Show floating text every 1 second
 
 export function startGameLoop() {
   if (gameLoopId) return; // Already running
@@ -48,7 +50,15 @@ export function startUILoop() {
     updateForagerVitalityUI();
     updateSurveyProgressUI();
     updatePerchCooldowns();
+    updatePerchVitalityBars();
     updateBreedingProgressBars();
+
+    // Show floating text for forager income every second
+    const now = Date.now();
+    if (now - lastFloatingTextTime >= FLOATING_TEXT_INTERVAL) {
+      showForagerIncomeFloatingText();
+      lastFloatingTextTime = now;
+    }
 
     // Schedule next update
     uiLoopId = setTimeout(updateUI, interval);

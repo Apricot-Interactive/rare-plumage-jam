@@ -1,10 +1,12 @@
 // SANCTUARY - Sanctuary System (Perches, Grooming, Maturation, Bonuses)
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { VITALITY_RESTORE_RATE, IMMEDIATE_RESTORE_AMOUNT, IMMEDIATE_RESTORE_COOLDOWN, UNLOCK_COSTS, TRAITS } from '../core/constants.js';
+import { VITALITY_RESTORE_TIME_SECONDS, MANUAL_RESTORE_PERCENT_PER_TAP, UNLOCK_COSTS, TRAITS, MATURITY_COSTS } from '../core/constants.js';
 import { unassignBirdFromCurrentLocation } from './foragers.js';
 
 export function updateGrooming(dt) {
   if (!gameState) return;
+
+  const dtSeconds = dt / 1000; // Convert to seconds
 
   gameState.perches.forEach(perch => {
     if (!perch.birdId) return;
@@ -14,9 +16,10 @@ export function updateGrooming(dt) {
 
     // Only restore if vitality is below 100%
     if (bird.vitalityPercent < 100) {
-      const restorePerMinute = VITALITY_RESTORE_RATE;
-      const restorePerMs = restorePerMinute / 60000;
-      const restoreAmount = restorePerMs * dt;
+      // Full recovery over 5 minutes (300 seconds)
+      // So restore rate is 100% / 300 seconds = 0.333...% per second
+      const restorePerSecond = 100 / VITALITY_RESTORE_TIME_SECONDS;
+      const restoreAmount = restorePerSecond * dtSeconds;
 
       bird.vitalityPercent = Math.min(100, bird.vitalityPercent + restoreAmount);
     }
@@ -96,29 +99,10 @@ export function instantRestore(slot) {
   const bird = getBirdById(perch.birdId);
   if (!bird) return false;
 
-  // Initialize cooldown timestamp if it doesn't exist
-  if (bird.restoreCooldownUntil === undefined) {
-    bird.restoreCooldownUntil = 0;
-  }
+  // No cooldown - tap speeds up recovery by 1% per tap
+  bird.vitalityPercent = Math.min(100, bird.vitalityPercent + MANUAL_RESTORE_PERCENT_PER_TAP);
 
-  // Check cooldown on the bird (timestamp-based)
-  const now = Date.now();
-  if (bird.restoreCooldownUntil > now) {
-    const remainingMs = bird.restoreCooldownUntil - now;
-    console.log(`Restore on cooldown: ${Math.ceil(remainingMs / 1000)}s remaining`);
-    return false;
-  }
-
-  // Apply instant restore
-  bird.vitalityPercent = Math.min(100, bird.vitalityPercent + IMMEDIATE_RESTORE_AMOUNT);
-
-  // Calculate cooldown based on bird's distinction (FORAGER_DURATION * IMMEDIATE_RESTORE_COOLDOWN)
-  const { FORAGER_DURATION } = { FORAGER_DURATION: { 1: 10, 2: 60, 3: 240, 4: 480, 5: 1440 } };
-  const groomTimeMinutes = FORAGER_DURATION[bird.distinction] || 10;
-  const cooldownMinutes = groomTimeMinutes * IMMEDIATE_RESTORE_COOLDOWN;
-  bird.restoreCooldownUntil = now + (cooldownMinutes * 60 * 1000); // Set timestamp
-
-  console.log(`Instant restore: +${IMMEDIATE_RESTORE_AMOUNT}% vitality, cooldown ${cooldownMinutes}min`);
+  console.log(`Manual restore: +${MANUAL_RESTORE_PERCENT_PER_TAP}% vitality`);
   return true;
 }
 
@@ -128,9 +112,29 @@ export function matureBird(birdId) {
   const bird = getBirdById(birdId);
   if (!bird || bird.isMature) return false;
 
-  if (spendSeeds(UNLOCK_COSTS.maturation)) {
-    bird.isMature = true;
-    console.log(`Matured ${bird.speciesName} for ${UNLOCK_COSTS.maturation} Seeds`);
+  // Initialize maturityProgress if it doesn't exist (for backward compatibility)
+  if (bird.maturityProgress === undefined) {
+    bird.maturityProgress = 0;
+  }
+
+  // Get total maturity cost for this bird's star level
+  const totalCost = MATURITY_COSTS[bird.distinction] || MATURITY_COSTS[1];
+
+  // Each tap costs 10% of total and grants 10% progress
+  const costPerTap = Math.ceil(totalCost * 0.1);
+
+  // Spend seeds for this tap
+  if (spendSeeds(costPerTap)) {
+    bird.maturityProgress += 10;
+    console.log(`Maturity progress: ${bird.maturityProgress}% for ${bird.speciesName} (cost: ${costPerTap})`);
+
+    // Check if fully mature
+    if (bird.maturityProgress >= 100) {
+      bird.isMature = true;
+      bird.maturityProgress = 100; // Cap at 100
+      console.log(`${bird.speciesName} is now mature!`);
+    }
+
     return true;
   }
 

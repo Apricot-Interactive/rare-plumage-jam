@@ -1,7 +1,8 @@
 // SANCTUARY - Game State Management
-import { GAME_CONFIG, UNLOCK_COSTS, BIOMES } from './constants.js';
+import { GAME_CONFIG, UNLOCK_COSTS, BIOMES, SURVEY_COSTS } from './constants.js';
 import { STORAGE_KEYS } from './constants.js';
 import { generateId } from '../utils/random.js';
+import { calculateOfflineProgress } from '../systems/offline.js';
 
 export let gameState = null;
 
@@ -32,10 +33,8 @@ function createDefaultState() {
 
       // Survey slot
       survey: {
-        progress: index === 0 ? GAME_CONFIG.STARTING_SURVEY_PROGRESS : 0,
+        progress: 0, // Progress in seeds contributed (out of SURVEY_COSTS total)
         surveyorId: null, // Bird assigned to survey
-        observationCost: biome.observationCost,
-        progressPerTap: biome.progressPerTap,
         lastUpdateTime: null
       }
     })),
@@ -67,6 +66,7 @@ function createDefaultState() {
         traits: ['alacrity'],
         vitalityPercent: 100,
         isMature: false,
+        maturityProgress: 0,
         cataloguedAt: Date.now(),
         location: 'collection',
         isLegendary: false,
@@ -94,6 +94,14 @@ export function initializeState() {
   if (loaded) {
     gameState = loaded;
     console.log('Game loaded from localStorage');
+
+    // Calculate offline progress
+    const offlineProgress = calculateOfflineProgress();
+
+    // Store offline progress for the modal (will be shown in main.js)
+    if (offlineProgress.timeAway > 0) {
+      window.offlineProgressData = offlineProgress;
+    }
   } else {
     gameState = createDefaultState();
     console.log('New game created');

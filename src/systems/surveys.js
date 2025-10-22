@@ -1,97 +1,141 @@
 // SANCTUARY - Survey System (Biome-based)
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { ASSISTANT_TAP_RATE, SURVEY_PROTECTION_THRESHOLD } from '../core/constants.js';
+import { SURVEY_COSTS, FORAGER_BASE_RATES, UNLOCK_COSTS } from '../core/constants.js';
 import { createSpecimen } from '../data/species.js';
-import { unassignBirdFromCurrentLocation } from './foragers.js';
+import { unassignBirdFromCurrentLocation, calculateForagerSlotIncome } from './foragers.js';
+
+// Calculate survey contribution rate for a specific bird (seeds/sec)
+function calculateSurveyContribution(biomeId, bird) {
+  if (!bird || bird.vitalityPercent <= 0) return 0;
+
+  // Get the highest unlocked forager rate for this biome
+  const biomeForagers = gameState.biomes.find(b => b.id === biomeId)?.foragers || [];
+  let highestSlot = 0;
+  for (let i = biomeForagers.length - 1; i >= 0; i--) {
+    if (biomeForagers[i].unlocked) {
+      highestSlot = i;
+      break;
+    }
+  }
+
+  const baseRate = FORAGER_BASE_RATES[biomeId]?.[highestSlot] || 0;
+  if (baseRate === 0) return 0;
+
+  // Multiply by star level
+  let rate = baseRate * bird.distinction;
+
+  // Double if bird is from this biome
+  if (bird.biome === biomeId) {
+    rate *= 2;
+  }
+
+  return rate;
+}
 
 // Update survey progress for all biomes
-// Survey speed = sum of tap rates from all 4 birds (3 foragers + 1 surveyor)
 export function updateSurveyProgress(dt) {
   if (!gameState) return;
 
-  const now = Date.now();
+  const dtSeconds = dt / 1000; // Convert to seconds
 
   gameState.biomes.forEach(biome => {
     if (!biome.unlocked) return;
 
     const survey = biome.survey;
+    const totalCost = SURVEY_COSTS[biome.id] || 360;
 
-    // Calculate total tap rate from all 4 birds assigned to this biome
-    let totalTapRate = 0;
+    // Check if survey already complete
+    if (survey.progress >= totalCost) return;
 
-    // Add foragers' tap rates
+    // Calculate total contribution from all assigned birds
+    let totalContribution = 0;
+
+    // Add foragers' contributions
     biome.foragers.forEach(forager => {
       if (!forager.birdId) return;
 
       const bird = getBirdById(forager.birdId);
-      if (!bird || bird.vitalityPercent <= 0) return;
-
-      totalTapRate += ASSISTANT_TAP_RATE[bird.distinction] || 0;
+      if (bird) {
+        totalContribution += calculateSurveyContribution(biome.id, bird);
+      }
     });
 
-    // Add surveyor's tap rate
+    // Add surveyor's contribution
     if (survey.surveyorId) {
       const surveyor = getBirdById(survey.surveyorId);
-      if (surveyor && surveyor.vitalityPercent > 0) {
-        totalTapRate += ASSISTANT_TAP_RATE[surveyor.distinction] || 0;
+      if (surveyor) {
+        totalContribution += calculateSurveyContribution(biome.id, surveyor);
       }
     }
 
-    // Skip if no birds contributing
-    if (totalTapRate === 0) return;
+    // Add seeds (without debiting player)
+    if (totalContribution > 0) {
+      const seedsAdded = totalContribution * dtSeconds;
+      survey.progress = Math.min(totalCost, survey.progress + seedsAdded);
 
-    // Protection: Don't spend Seeds if below threshold
-    if (gameState.seeds < SURVEY_PROTECTION_THRESHOLD) return;
-
-    // Calculate how many observations happen in this time period
-    const timeSinceLastUpdate = survey.lastUpdateTime ? (now - survey.lastUpdateTime) : dt;
-    const tapsInPeriod = (totalTapRate * timeSinceLastUpdate) / 1000;
-
-    if (tapsInPeriod >= 1) {
-      const wholeTaps = Math.floor(tapsInPeriod);
-      for (let i = 0; i < wholeTaps; i++) {
-        if (gameState.seeds >= survey.observationCost && survey.progress < 100) {
-          if (spendSeeds(survey.observationCost)) {
-            survey.progress += survey.progressPerTap;
-            survey.progress = Math.min(100, survey.progress);
-          }
-        }
+      // Debug logging
+      if (Math.random() < 0.01) { // Log 1% of the time to avoid spam
+        console.log(`Survey ${biome.id}: +${seedsAdded.toFixed(2)} seeds (${survey.progress.toFixed(1)}/${totalCost}), contribution rate: ${totalContribution.toFixed(2)}/sec`);
       }
-    }
 
-    survey.lastUpdateTime = now;
-
-    // Check for completion
-    if (survey.progress >= 100) {
-      completeSurvey(biome.id);
+      // Check for completion
+      if (survey.progress >= totalCost) {
+        completeSurvey(biome.id);
+      }
     }
   });
 }
 
-// Manual observation on a biome survey
+// Manual observation on a biome survey - taps add 5x the surveyor's rate
 export function observeSurvey(biomeId) {
-  if (!gameState) return false;
+  if (!gameState) return { success: false, seedsSpent: 0 };
 
   const biome = gameState.biomes.find(b => b.id === biomeId);
-  if (!biome || !biome.unlocked) return false;
+  if (!biome || !biome.unlocked) return { success: false, seedsSpent: 0 };
 
   const survey = biome.survey;
+  const totalCost = SURVEY_COSTS[biome.id] || 360;
 
-  if (spendSeeds(survey.observationCost)) {
-    survey.progress += survey.progressPerTap;
-    survey.progress = Math.min(100, survey.progress);
+  // Check if survey already complete
+  if (survey.progress >= totalCost) return { success: false, seedsSpent: 0 };
 
-    console.log(`Manual observation on ${biomeId}: ${survey.progress}%`);
+  // Calculate contribution rate (use surveyor if assigned, otherwise use highest forager rate)
+  let contributionRate = 0;
+  let bird = null;
 
-    // Check for completion
-    if (survey.progress >= 100) {
-      completeSurvey(biomeId);
+  if (survey.surveyorId) {
+    bird = getBirdById(survey.surveyorId);
+    if (bird) {
+      contributionRate = calculateSurveyContribution(biomeId, bird);
     }
-
-    return true;
   }
 
-  return false;
+  // If no surveyor or no contribution, use highest unlocked forager slot base rate
+  if (contributionRate === 0) {
+    const biomeForagers = biome.foragers;
+    let highestSlot = 0;
+    for (let i = biomeForagers.length - 1; i >= 0; i--) {
+      if (biomeForagers[i].unlocked) {
+        highestSlot = i;
+        break;
+      }
+    }
+    contributionRate = FORAGER_BASE_RATES[biomeId]?.[highestSlot] || 1;
+  }
+
+  // Manual tap adds 5x the contribution rate (FREE - no seed deduction)
+  const seedsToAdd = contributionRate * 5;
+
+  survey.progress = Math.min(totalCost, survey.progress + seedsToAdd);
+
+  console.log(`Manual observation on ${biomeId}: +${seedsToAdd.toFixed(1)} seeds (FREE)`);
+
+  // Check for completion
+  if (survey.progress >= totalCost) {
+    completeSurvey(biomeId);
+  }
+
+  return { success: true, seedsSpent: 0 };
 }
 
 // Complete a survey and spawn a new bird
@@ -221,21 +265,35 @@ export function getBiomeTapRate(biomeId) {
   return totalTapRate;
 }
 
-// Unlock a biome by checking for required bird distinction
+// Unlock a biome by checking for required bird distinction AND seed cost
 export function unlockBiome(biomeId) {
   if (!gameState) return false;
 
   const biome = gameState.biomes.find(b => b.id === biomeId);
   if (!biome || biome.unlocked) return false;
 
+  const seedCost = UNLOCK_COSTS.biomeUnlock[biomeId] || 0;
+
   // Check if player has a bird with required distinction
   const hasRequiredBird = gameState.specimens.some(
     bird => bird.distinction >= biome.unlockRequirement
   );
 
-  if (hasRequiredBird) {
+  if (!hasRequiredBird) {
+    console.log(`Need a ${biome.unlockRequirement}⭐ bird to unlock ${biome.name}`);
+    return false;
+  }
+
+  // Check if player can afford the seed cost
+  if (gameState.seeds < seedCost) {
+    console.log(`Need ${seedCost} seeds to unlock ${biome.name}`);
+    return false;
+  }
+
+  // Spend seeds and unlock
+  if (spendSeeds(seedCost)) {
     biome.unlocked = true;
-    console.log(`Unlocked ${biome.name} biome!`);
+    console.log(`Unlocked ${biome.name} biome for ${seedCost} seeds!`);
     return true;
   }
 

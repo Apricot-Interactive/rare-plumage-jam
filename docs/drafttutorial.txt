@@ -1,0 +1,37 @@
+For the tutorial, EVERYTHING in the UI starts hidden except the top and bottom bars, and the Sanctuary and Breeding buttons on the bottom are replaced with a lock icon and cannot be tapped. You are on the Wilds screen. You have 100 seeds and 0 birds.
+
+A popup appears, in italics: "Only silence as far as you can hear. Did anything survive?" with a next button on the bottom.
+
+In the wilds tab, the header "The Wilds" and the Forest biome fade in, but the three forager spots are still hidden. The survey progress is 90% complete and the "assign bird" button under it is also hidden. An arrow bounces pointing up to the forest icon encouraging the player to tap and it disappears once the player starts tapping. The bar fills and a bird is unlocked. It's always a 1-star forest jay this first time.
+
+A popup appears, bold text: "Hello, Forest Jay!" with the jay icon and rings, star, and name (just like in the survey celebration). You tap next.
+
+Now the three forager circles appear with an arrow pointing down to the "Forager" button. You tap it and assign your jay and see the seeds ticking up. 
+
+A popup appears, bold text: "You're bringing me seeds. I can help too."
+
+The arrow points to the forager's icon encouraging you to tap. The lock icon for the sanctuary now says "lock icon" "250" "seeds icon". You start tapping and the arrow disappears. Once you have at least 250 seeds, a new arrow appears bouncing and pointing down at the 250 lock for the sanctuary tab. You tap it and 250 seeds are deducted.
+
+A popup appears, bold text: "You can rest in the sanctuary, Jay". You tap next.
+
+On the sanctuary screen, the lock is gone and the tab says Sanctuary as usual. The header The Sanctuary, Distinguished Guests, and the first Nest are visible. The arrow points to the Assign Guest button. The Wilds tab is temporarily unclickable. You tap the next and assign the jay. The arrow points to the brush icon. You tap it and see his energy return to 100.
+
+A popup appears, in italics: "Let's see. FORAGE for seeds. SURVEY for more birds. REST them in the sanctuary. I can do this." You tap next.
+
+All of the UI in the Wilds and Sanctuary tabs are unhidden and you can tap between the two tabs freely. The lock on the Hatchery tab says "lock icon" "2000" "seeds icon". You play freely until you have 2000 seeds. Then the arrow returns and points down to the hatchery tab. You tap it and 2000 seeds are deducted.
+
+A popup appears, in italics: "Our sanctuary is growing. It's time to restart the breeding program." You tap next.
+
+An arrow points to Parent 1. You tap and assign a bird. It probably isn't mature, but if it is this part is skipped.
+
+A popup appears, in bold: "You need to get a little bigger first. Here, eat these seeds."
+
+An arrow points to the seeds button that increases maturity. I tap it until it's full. I'm not locked on this screen and the arrow disappears if I leave the screen or if I tap the button.
+
+I can continue playing, assigning birds to both parent slots, breeding, unlocking new biomes, etc.
+
+The first time I hatch a bird from breeding, a popup appears. In italics: "OK that's everything from the manual. Remember - 5 habitats. 5 artifacts. 5 legendary guardians. I can do this. I can save them. I can save us." You tap next.
+
+Every time I unlock a biome, a generic popup appears with the next button. "Congratulations on unlocking the NN biome!" where NN is the name.
+
+Every time I unlock my first bird of a star rarity, a generic popup appears with the next button. "Congratulations on unlocking a NN star bird!" where NN is number of stars.

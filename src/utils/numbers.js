@@ -24,6 +24,23 @@ export function formatSeeds(n) {
   return formatNumber(n);
 }
 
+// Compact format for buttons - always uses k/m notation
+export function formatCompact(n) {
+  if (n < 1000) {
+    return Math.floor(n).toString();
+  }
+
+  if (n < 1000000) {
+    // Format as k: 12k or 1.5k
+    const k = n / 1000;
+    return k >= 10 ? Math.floor(k) + 'k' : k.toFixed(1) + 'k';
+  }
+
+  // Format as m: 2m or 1.5m
+  const m = n / 1000000;
+  return m >= 10 ? Math.floor(m) + 'm' : m.toFixed(1) + 'm';
+}
+
 export function formatPercent(n) {
   return Math.floor(n) + '%';
 }

@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(git add index.html src/main.js src/styles.css)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd mobile-responsive layout with landscape orientation lock\n\n- Implement dynamic viewport sizing (100dvh) for iOS compatibility\n- Add responsive breakpoints: 100vw on mobile (≤768px), 375px on desktop\n- Add iOS safe-area-inset support for notched devices\n- Create landscape orientation overlay for mobile devices\n- Add auto-detection to show/hide overlay based on orientation\n- Desktop/tablet (>768px) never shows orientation overlay\n- Animated phone icon with helpful \"Rotate to portrait\" message\n\nFixes bottom navigation visibility issue on Chrome iOS.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

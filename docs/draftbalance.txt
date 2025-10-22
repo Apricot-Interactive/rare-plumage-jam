@@ -1,0 +1,68 @@
+Let's get some better balance data in.
+
+First update some unlock cost data:
+
+Biome 1 Forager 2: 100
+Biome 2 Forager 2: 5000
+Biome 3 Forager 2: 40000
+Biome 4 Forager 2: 300000
+Biome 5 Forager 2: 1500000
+
+Biome 1 Forager 3: 2500
+Biome 2 Forager 3: 15000
+Biome 3 Forager 3: 125000
+Biome 4 Forager 3: 500000
+Biome 5 Forager 3: 4000000
+
+Let's also add a seed cost in addition to the star requirement to unlocking biomes (so, note this on their locked version and deduct it when unlocking)
+
+Unlocking Biome 2: 4000
+Unlocking Biome 3: 30000
+Unlocking Biome 4: 200000
+Unlocking Biome 5: 800000
+
+Then let's update how much each forager slot adds seeds. They add some per second when a bird is assigned that still has energy, and they add some per tap.
+
+Biome 1 Forager 2: 1 seeds/sec
+Biome 2 Forager 2: 4 seeds/sec
+Biome 3 Forager 2: 12 seeds/sec
+Biome 4 Forager 2: 40 seeds/sec
+Biome 5 Forager 2: 125 seeds/sec
+
+Biome 1 Forager 3: 2 seeds/sec
+Biome 2 Forager 3: 8 seeds/sec
+Biome 3 Forager 3: 25 seeds/sec
+Biome 4 Forager 3: 80 seeds/sec
+Biome 5 Forager 3: 250 seeds/sec
+
+The rate is multiplied by the number of stars on the bird (so 5* = x5) and doubled again if the bird is the from the biome where it is being used. If the biome is right, show the "biome icon" "x2" to the right of the portrait. If the stars are 2 or higher, show "star icon" "x2" (for two stars) or x3 for 3 stars etc just below where the biome multiplier appears.
+
+Each tap adds 5 seconds of seed gathering instantly (update this rule throughout)
+
+Make sure seeds/sec fly up as little +n text that disappears as it floats up, and that tap seeds also show as floating +n text in the same fashion.
+
+Now let's move on to energy. Foraging or Surveying uses 1 energy per second. By star level birds have:
+
+1*: 120 Energy
+2*: 600 Energy
+3*: 1800 Energy
+4*: 7200 Energy
+5*: 28800 Energy
+
+And all birds recover to 100% energy over 5 minutes automatically while placed on a perch. Tapping the brush doesn't grant some recover and start a cooldown. Instead, it speeds up the recover by 1% per tap.
+
+And for maturity. Birds require this many seeds to reach maturity per star level. The seeds icon to feed them always shows a numerical cost equal to 10% of the total and deducts that amount and adds that much maturity.
+
+1*: 100 seeds to mature
+2*: 1000 seeds to mature
+3*: 5000 seeds to mature
+4*: 50000 seeds to mature
+5*: 200000 seeds to mature
+
+When it comes to surveying, assigned birds advance the survey progress WITHOUT debiting seeds. But tapping the survey icon spends seeds and shows a red floating text with -n that floats and disappears every time it is tapped. Assigned birds lose energy 1 per second, and while they have energy they add seeds (without debiting the player) according to the highest unlocked forager of the biome's rate per second, multiplied by the survey bird's star level, and then doubled if the survey bird is from that biome. 5 times that amount is added every time the player taps, but in this case it is also debited from the player's total seed count. Here's how many seeds are needed to fill each biome's survey:
+
+Biome 1 Survey: 360
+Biome 2 Survey: 7200
+Biome 3 Survey: 67500
+Biome 4 Survey: 864000
+Biome 5 Survey: 10800000

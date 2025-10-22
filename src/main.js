@@ -7,6 +7,7 @@ import { initWildsUI, updateWildsUI } from './ui/wilds.js';
 import { initSanctuaryUI, updateSanctuaryUI } from './ui/sanctuary.js';
 import { initHatcheryUI, updateHatcheryUI } from './ui/hatchery.js';
 import { createSpecimen } from './data/species.js';
+import { formatOfflineTime } from './systems/offline.js';
 
 console.log('SANCTUARY - Initializing...');
 console.log('Version:', GAME_CONFIG.VERSION);
@@ -26,6 +27,14 @@ function init() {
   initHatcheryUI();
   initSettings();
   initOrientationLock();
+
+  // Show offline progress modal if there was any progress
+  if (window.offlineProgressData) {
+    setTimeout(() => {
+      showOfflineProgressModal(window.offlineProgressData);
+      delete window.offlineProgressData;
+    }, 500); // Delay to ensure UI is ready
+  }
 
   // Start game loops
   startGameLoop();
@@ -283,4 +292,50 @@ function initOrientationLock() {
   window.addEventListener('resize', checkOrientation);
   window.addEventListener('orientationchange', checkOrientation);
   checkOrientation();
+}
+
+// ========================================
+// OFFLINE PROGRESS MODAL
+// ========================================
+
+function showOfflineProgressModal(data) {
+  const { seedsEarned, surveysCompleted, breedingsCompleted, timeAway } = data;
+  const modal = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+
+  const timeAwayStr = formatOfflineTime(timeAway);
+
+  let progressSummary = [];
+  if (seedsEarned > 0) {
+    progressSummary.push(`<div class="offline-stat">💰 ${seedsEarned.toLocaleString()} Seeds earned</div>`);
+  }
+  if (surveysCompleted > 0) {
+    progressSummary.push(`<div class="offline-stat">🔍 ${surveysCompleted} Survey${surveysCompleted > 1 ? 's' : ''} completed</div>`);
+  }
+  if (breedingsCompleted > 0) {
+    progressSummary.push(`<div class="offline-stat">🥚 ${breedingsCompleted} Bird${breedingsCompleted > 1 ? 's' : ''} hatched</div>`);
+  }
+
+  const summaryHTML = progressSummary.length > 0
+    ? progressSummary.join('')
+    : '<div class="offline-stat">No significant progress</div>';
+
+  content.innerHTML = `
+    <h3>⏱️ Welcome Back!</h3>
+    <div class="offline-summary">
+      <div class="offline-time">You were away for <strong>${timeAwayStr}</strong></div>
+      <div class="offline-stats">
+        ${summaryHTML}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="continue-btn" class="primary-btn">Continue</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+
+  content.querySelector('#continue-btn').addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
 }

@@ -1,60 +1,69 @@
 // SANCTUARY - Game Constants & Configuration
 
 // === FORAGER SYSTEM ===
+// Base forager rates by biome and slot (seeds/second)
+export const FORAGER_BASE_RATES = {
+  forest: [0.5, 1, 2],      // Slot 0, Slot 1, Slot 2
+  mountain: [2, 4, 8],
+  coastal: [6, 12, 25],
+  arid: [20, 40, 80],
+  tundra: [62.5, 125, 250]
+};
+
+// Energy capacity by star level (in seconds)
+export const ENERGY_CAPACITY = {
+  1: 120,      // ⭐ Common: 120 seconds (2 minutes)
+  2: 600,      // ⭐⭐ Uncommon: 600 seconds (10 minutes)
+  3: 1800,     // ⭐⭐⭐ Rare: 1800 seconds (30 minutes)
+  4: 7200,     // ⭐⭐⭐⭐ Epic: 7200 seconds (2 hours)
+  5: 28800     // ⭐⭐⭐⭐⭐ Legendary: 28800 seconds (8 hours)
+};
+
+// Legacy - kept for backward compatibility but no longer used
 export const FORAGER_INCOME = {
-  1: 1,      // ⭐ Common: 1 seed/sec
-  2: 3,      // ⭐⭐ Uncommon: 3 seeds/sec
-  3: 10,     // ⭐⭐⭐ Rare: 10 seeds/sec
-  4: 30,     // ⭐⭐⭐⭐ Epic: 30 seeds/sec
-  5: 100     // ⭐⭐⭐⭐⭐ Legendary: 100 seeds/sec
+  1: 1,
+  2: 3,
+  3: 10,
+  4: 30,
+  5: 100
 };
 
 export const FORAGER_DURATION = {
-  1: 10,     // ⭐ 10 minutes
-  2: 60,     // ⭐⭐ 1 hour
-  3: 240,    // ⭐⭐⭐ 4 hours
-  4: 480,    // ⭐⭐⭐⭐ 8 hours
-  5: 1440    // ⭐⭐⭐⭐⭐ 24 hours
+  1: 10,
+  2: 60,
+  3: 240,
+  4: 480,
+  5: 1440
 };
 
-export const MANUAL_TAP_SEEDS = 10; // Seeds earned per manual tap
+export const MANUAL_TAP_SEEDS = 10; // Seeds earned per manual tap (legacy)
 
 // === BIOME SYSTEM ===
 export const BIOMES = [
   {
     id: 'forest',
     name: 'Forest',
-    unlockRequirement: 1, // ⭐ (always unlocked)
-    observationCost: 10,
-    progressPerTap: 5
+    unlockRequirement: 1 // ⭐ (always unlocked)
   },
   {
     id: 'mountain',
     name: 'Mountain',
-    unlockRequirement: 2, // ⭐⭐
-    observationCost: 50,
-    progressPerTap: 3
+    unlockRequirement: 2 // ⭐⭐
   },
   {
     id: 'coastal',
     name: 'Coastal',
-    unlockRequirement: 3, // ⭐⭐⭐
-    observationCost: 400,
-    progressPerTap: 2
+    unlockRequirement: 3 // ⭐⭐⭐
   },
   {
     id: 'arid',
     name: 'Arid',
-    unlockRequirement: 4, // ⭐⭐⭐⭐
-    observationCost: 5000,
-    progressPerTap: 1
+    unlockRequirement: 4 // ⭐⭐⭐⭐
   },
   {
     id: 'tundra',
     name: 'Tundra',
-    unlockRequirement: 5, // ⭐⭐⭐⭐⭐
-    observationCost: 100000,
-    progressPerTap: 0.5
+    unlockRequirement: 5 // ⭐⭐⭐⭐⭐
   }
 ];
 
@@ -93,32 +102,66 @@ export const TRAIT_COUNT = {
 };
 
 // === VITALITY SYSTEM ===
-// Vitality drain rates by distinction (% per minute)
+// Energy drain: 1 energy per second while foraging/surveying
+// Vitality is percentage of total energy capacity
+export const ENERGY_DRAIN_PER_SECOND = 1;
+
+// Vitality restore: Full recovery over 5 minutes (300 seconds)
+export const VITALITY_RESTORE_TIME_SECONDS = 300; // 5 minutes to go from 0% to 100%
+
+// Manual restore (brush): Each tap speeds up recovery by 1%
+export const MANUAL_RESTORE_PERCENT_PER_TAP = 1; // +1% per brush tap
+
+// Legacy vitality drain rates (% per minute) - kept for backward compatibility
 export const VITALITY_DRAIN_RATE = {
-  1: 20,      // ⭐ 5 minutes to exhaust
-  2: 3.33,    // ⭐⭐ 30 minutes to exhaust
-  3: 0.833,   // ⭐⭐⭐ 2 hours to exhaust
-  4: 0.208,   // ⭐⭐⭐⭐ 8 hours to exhaust
-  5: 0.069    // ⭐⭐⭐⭐⭐ 24 hours to exhaust
+  1: 20,
+  2: 3.33,
+  3: 0.833,
+  4: 0.208,
+  5: 0.069
 };
-export const VITALITY_RESTORE_RATE = 1.0; // 1% per minute while grooming
-export const IMMEDIATE_RESTORE_AMOUNT = 20; // +20% instant restore
-export const IMMEDIATE_RESTORE_COOLDOWN = 0.1; // Cooldown = 1/10th of groom time
+export const VITALITY_RESTORE_RATE = 1.0;
+export const IMMEDIATE_RESTORE_AMOUNT = 20;
+export const IMMEDIATE_RESTORE_COOLDOWN = 0.1;
 
 // === UNLOCK COSTS ===
 export const UNLOCK_COSTS = {
   // Per-biome forager slot unlock costs
-  // Each biome's slots cost 5x more than the previous biome's equivalent slot
   biomeForagers: {
-    forest: [0, 500, 5000],
-    mountain: [0, 2500, 25000],
-    coastal: [0, 12500, 125000],
-    arid: [0, 62500, 625000],
-    tundra: [0, 312500, 3125000]
+    forest: [0, 100, 2500],
+    mountain: [0, 5000, 15000],
+    coastal: [0, 40000, 125000],
+    arid: [0, 300000, 500000],
+    tundra: [0, 1500000, 4000000]
+  },
+  // Seed costs to unlock biomes (in addition to star requirement)
+  biomeUnlock: {
+    forest: 0,
+    mountain: 4000,
+    coastal: 30000,
+    arid: 200000,
+    tundra: 800000
   },
   perches: [0, 500, 2500, 15000, 100000],
-  breedingPrograms: [0, 2500, 25000],
-  maturation: 100
+  breedingPrograms: [0, 2500, 25000]
+};
+
+// Maturation costs by star level (total seeds to reach maturity)
+export const MATURITY_COSTS = {
+  1: 100,      // ⭐ Common
+  2: 1000,     // ⭐⭐ Uncommon
+  3: 5000,     // ⭐⭐⭐ Rare
+  4: 50000,    // ⭐⭐⭐⭐ Epic
+  5: 200000    // ⭐⭐⭐⭐⭐ Legendary
+};
+
+// Survey costs (total seeds required to complete survey)
+export const SURVEY_COSTS = {
+  forest: 360,
+  mountain: 7200,
+  coastal: 67500,
+  arid: 864000,
+  tundra: 10800000
 };
 
 // === PRESTIGE SYSTEM (Crystal-based) ===

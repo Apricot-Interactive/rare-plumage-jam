@@ -1,5 +1,20 @@
 # SANCTUARY - 6-Hour Game Jam Build Plan
 
+## COMPLETED STAGES
+
+**Stages 0-5 are complete!**
+
+- ✅ **Stage 0**: Foundation - Project structure, constants, navigation
+- ✅ **Stage 1**: Core Loop - Foragers, save/load, income system
+- ✅ **Stage 2**: Vitality & Surveys - Vitality drain, survey system, species generation
+- ✅ **Stage 3**: Sanctuary & Perches - Grooming, maturation, distinguished guest bonuses
+- ✅ **Stage 4**: Breeding & Genetics - Genetic inheritance, breeding programs
+- ✅ **Stage 5**: Prestige & Offline Progress - Crystal-based prestige, offline calculation
+
+**Current Status**: Ready for Stage 6 (Legendaries & Polish)
+
+---
+
 ## Critical Success Factors
 - **Playable at every stage** - Each stage produces runnable software
 - **Systems integrate early** - Foraging → Breeding → Prestige flow works ASAP
@@ -573,9 +588,9 @@ function checkLegendaryEligibility(parent1, parent2) {
 - [ ] Trait stacking happens
 
 ### Stage 5 Complete
-- [ ] Reorganization preserves perched birds
-- [ ] Income multiplier applies
-- [ ] Offline progress calculates
+- ✅ Reorganization preserves perched birds
+- ✅ Income multiplier applies
+- ✅ Offline progress calculates
 
 ### Stage 6 Complete
 - [ ] Legendary breeding works

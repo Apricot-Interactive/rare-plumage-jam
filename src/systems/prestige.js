@@ -1,6 +1,8 @@
 // SANCTUARY - Prestige System (Crystal-based)
-import { gameState, getBirdById, saveGame } from '../core/state.js';
+import { gameState, getBirdById, saveGame, spendSeeds } from '../core/state.js';
 import { PRESTIGE_BIOME_ORDER, GAME_CONFIG, UNLOCK_COSTS, BIOMES } from '../core/constants.js';
+
+export const PRESTIGE_COST = 10000000; // 10 million seeds
 
 /**
  * Check if prestige is available
@@ -8,6 +10,7 @@ import { PRESTIGE_BIOME_ORDER, GAME_CONFIG, UNLOCK_COSTS, BIOMES } from '../core
  * - Tundra biome is unlocked
  * - At least 5 birds assigned to sanctuary perches
  * - Haven't already unlocked all 5 crystals
+ * - Have at least 10,000,000 seeds
  */
 export function canPrestige() {
   if (!gameState) return false;
@@ -22,6 +25,9 @@ export function canPrestige() {
   // Check if at least 5 birds are on perches
   const perchedBirdCount = gameState.perches.filter(p => p.birdId !== null).length;
   if (perchedBirdCount < 5) return false;
+
+  // Check if player has enough seeds
+  if (gameState.seeds < PRESTIGE_COST) return false;
 
   return true;
 }
@@ -40,6 +46,7 @@ export function getNextCrystal() {
 
 /**
  * Perform prestige
+ * 0. Spend 10,000,000 seeds
  * 1. Award next crystal in sequence
  * 2. Keep only 5 birds from perches (reset to 100% vitality + immature)
  * 3. Reset seeds to starting amount
@@ -56,6 +63,12 @@ export function performPrestige() {
   if (!nextCrystal) return false;
 
   console.log(`Performing prestige... Awarding ${nextCrystal} crystal`);
+
+  // 0. Spend seeds for prestige
+  if (!spendSeeds(PRESTIGE_COST)) {
+    console.error('Failed to spend seeds for prestige');
+    return false;
+  }
 
   // 1. Award crystal
   gameState.crystals.push(nextCrystal);
@@ -99,10 +112,8 @@ export function performPrestige() {
 
     // Reset survey
     biome.survey = {
-      progress: index === 0 ? GAME_CONFIG.STARTING_SURVEY_PROGRESS : 0,
+      progress: 0,  // Progress in seeds contributed (out of SURVEY_COSTS total)
       surveyorId: null,
-      observationCost: BIOMES[index].observationCost,
-      progressPerTap: BIOMES[index].progressPerTap,
       lastUpdateTime: null
     };
   });
@@ -149,18 +160,17 @@ export function getPrestigeWarningMessage() {
   const crystalName = nextCrystal.charAt(0).toUpperCase() + nextCrystal.slice(1);
 
   return {
-    title: 'Perform Prestige?',
+    title: 'Launch Artifact Expedition?',
     crystal: nextCrystal,
     crystalName: crystalName,
     warning: [
       `You will receive the ${crystalName} Crystal.`,
       '',
-      'This will:',
-      '• Keep your 5 perched birds (reset to 100% vitality + immature)',
+      'This will cost 10,000,000 🫘 and:',
+      '• Keep your 5 perched birds',
       '• Remove all other birds',
       '• Reset Seeds to 100',
       '• Re-lock all biomes except Forest',
-      '• Keep your unlocked perches and breeding programs',
       '',
       `With this crystal, you can breed the ${crystalName} legendary bird.`
     ].join('\n')

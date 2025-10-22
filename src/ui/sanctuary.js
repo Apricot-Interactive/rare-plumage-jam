@@ -1,8 +1,9 @@
 // SANCTUARY - Sanctuary UI (Perches, Collection, Bonuses)
 import { gameState, getBirdById } from '../core/state.js';
 import { assignPerch, unassignPerch, unlockPerchSlot, instantRestore, matureBird, calculateGuestBonuses } from '../systems/sanctuary.js';
-import { RARITY, TRAITS, PRESTIGE_BIOME_ORDER } from '../core/constants.js';
+import { RARITY, TRAITS, PRESTIGE_BIOME_ORDER, MATURITY_COSTS } from '../core/constants.js';
 import { updateWildsUI } from './wilds.js';
+import { formatCompact } from '../utils/numbers.js';
 
 export function initSanctuaryUI() {
   renderCrystals();
@@ -134,10 +135,15 @@ function createPerchSlot(perch) {
     const bonuses = getBirdBonuses(bird);
     const bonusText = bonuses.length > 0 ? bonuses.join(', ') : 'No bonuses';
 
-    const maturityPercent = bird.isMature ? 100 : 0;
+    const maturityPercent = bird.maturityProgress || 0; // Use maturityProgress (0-100)
     // Using smaller radii for 90px container: r=38, r=42, r=46
     const vitalityStrokeOffset = 264 - (264 * bird.vitalityPercent / 100);
     const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
+
+    // Calculate maturity cost for display
+    const totalCost = MATURITY_COSTS[bird.distinction] || MATURITY_COSTS[1];
+    const costPerTap = Math.ceil(totalCost * 0.1);
+    const canAfford = gameState.seeds >= costPerTap;
 
     wrapper.innerHTML = `
       <div class="perch-card-top">
@@ -162,8 +168,8 @@ function createPerchSlot(perch) {
           <button class="perch-restore-btn" ${cooldownMs > 0 ? 'disabled' : ''}>
             ${cooldownMs > 0 ? `${cooldownSeconds}s` : `🪮`}
           </button>
-          <button class="perch-mature-btn ${bird.isMature ? 'hidden' : ''}" ${bird.isMature ? 'disabled' : ''}>
-            🫘
+          <button class="perch-mature-btn ${bird.isMature ? 'hidden' : ''}" ${!canAfford || bird.isMature ? 'disabled' : ''} title="Maturity: ${maturityPercent}%">
+            ${formatCompact(costPerTap)}🫘
           </button>
         </div>
         <div class="perch-bird-name">${bird.customDesignation || bird.speciesName}</div>
@@ -477,6 +483,11 @@ function createCollectionItem(bird) {
   const vitalityStrokeOffset = 264 - (264 * vitalityPercent / 100);
   const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
 
+  // Calculate maturity cost for display
+  const totalCost = MATURITY_COSTS[bird.distinction] || MATURITY_COSTS[1];
+  const costPerTap = Math.ceil(totalCost * 0.1);
+  const canAfford = gameState.seeds >= costPerTap;
+
   item.innerHTML = `
     <div class="collection-bird-info">
       <div class="collection-bird-icon-wrapper">
@@ -501,7 +512,7 @@ function createCollectionItem(bird) {
       </div>
     </div>
     <div class="collection-actions">
-      ${!bird.isMature && isAvailable ? `<button class="mature-btn" data-bird-id="${bird.id}">Mature (100 🫘)</button>` : ''}
+      ${!bird.isMature && isAvailable ? `<button class="mature-btn" data-bird-id="${bird.id}" ${!canAfford ? 'disabled' : ''}>${formatCompact(costPerTap)}🫘</button>` : ''}
     </div>
   `;
 
@@ -545,6 +556,43 @@ export function updatePerchCooldowns() {
     } else {
       restoreBtn.disabled = false;
       restoreBtn.textContent = '🪮';
+    }
+  });
+}
+
+// Update perch vitality and maturity rings dynamically (selective update)
+export function updatePerchVitalityBars() {
+  if (!gameState) return;
+
+  gameState.perches.forEach(perch => {
+    if (!perch.unlocked || !perch.birdId) return;
+
+    const bird = getBirdById(perch.birdId);
+    if (!bird) return;
+
+    const wrapper = document.querySelector(`.perch-card[data-slot="${perch.slot}"]`);
+    if (!wrapper) return;
+
+    // Update vitality ring
+    const vitalityRing = wrapper.querySelector('.vitality-ring-fill');
+    if (vitalityRing) {
+      const vitalityStrokeOffset = 264 - (264 * bird.vitalityPercent / 100);
+      vitalityRing.style.strokeDashoffset = vitalityStrokeOffset;
+    }
+
+    // Update maturity ring
+    const maturityRing = wrapper.querySelector('.maturity-ring-fill');
+    if (maturityRing) {
+      const maturityPercent = bird.maturityProgress || 0;
+      const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
+      maturityRing.style.strokeDashoffset = maturityStrokeOffset;
+    }
+
+    // Update maturity button tooltip
+    const matureBtn = wrapper.querySelector('.perch-mature-btn');
+    if (matureBtn) {
+      const maturityPercent = bird.maturityProgress || 0;
+      matureBtn.title = `Maturity: ${maturityPercent}%`;
     }
   });
 }
