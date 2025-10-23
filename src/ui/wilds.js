@@ -5,6 +5,15 @@ import { observeSurvey, assignSurveyor, unassignSurveyor, getBiomeTapRate, unloc
 import { canPrestige, performPrestige, getPrestigeWarningMessage, PRESTIGE_COST } from '../systems/prestige.js';
 import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE, UNLOCK_COSTS, SURVEY_COSTS, FORAGER_BASE_RATES } from '../core/constants.js';
 import { updateSanctuaryUI } from './sanctuary.js';
+import {
+  isTutorialActive,
+  getCurrentTutorialStep,
+  TUTORIAL_STEPS,
+  handleFirstSurveyComplete,
+  handleForagerAssignment,
+  handleManualTap,
+  checkSanctuaryUnlock
+} from '../systems/tutorial.js';
 
 // Celebration overlay function - now fits within biome rectangle
 export function showSurveyCelebration(newBird, biomeId) {
@@ -46,7 +55,12 @@ export function initWildsUI() {
 
 // Full re-render (only call when assignments change)
 export function updateWildsUI() {
+  clearHints(); // Clear hints when UI updates (player took action)
   renderBiomes();
+  // Restart hint timer
+  lastScreenCheck = null;
+  hintShown = false;
+  checkWildsHints();
 }
 
 // Selective updates for real-time changes
@@ -132,10 +146,19 @@ function renderBiomes() {
 
   container.innerHTML = '';
 
+  // During tutorial, only show Forest biome
+  const tutorialActive = isTutorialActive();
+  const tutorialStep = getCurrentTutorialStep();
+
   // Find first locked biome index
   const firstLockedIndex = gameState.biomes.findIndex(b => !b.unlocked);
 
   gameState.biomes.forEach((biome, index) => {
+    // During tutorial before FREE_PLAY, only show Forest biome
+    if (tutorialActive && tutorialStep < TUTORIAL_STEPS.FREE_PLAY && biome.id !== 'forest') {
+      return;
+    }
+
     // Show unlocked biomes + first locked biome only
     if (biome.unlocked || index === firstLockedIndex) {
       const biomeCard = createBiomeCard(biome, index);
@@ -143,9 +166,9 @@ function renderBiomes() {
     }
   });
 
-  // Show prestige card if Tundra is unlocked
+  // Show prestige card if Tundra is unlocked (not during tutorial)
   const tundra = gameState.biomes.find(b => b.id === 'tundra');
-  if (tundra && tundra.unlocked) {
+  if (tundra && tundra.unlocked && !tutorialActive) {
     const prestigeCard = createPrestigeCard();
     container.appendChild(prestigeCard);
   }
@@ -196,12 +219,17 @@ function createBiomeCard(biome, index) {
   const progressPercent = Math.min(100, (biome.survey.progress / totalCost) * 100);
   const currentProgress = Math.floor(biome.survey.progress);
 
+  // Tutorial: Hide foragers until after bird celebration (step 3+)
+  const tutorialActive = isTutorialActive();
+  const tutorialStep = getCurrentTutorialStep();
+  const hideForagers = tutorialActive && tutorialStep < TUTORIAL_STEPS.FORAGER_ASSIGNMENT;
+
   card.innerHTML = `
     <div class="biome-header">
       <h3>${biome.name}</h3>
     </div>
     <div class="biome-body">
-      <div class="forager-row">
+      <div class="forager-row ${hideForagers ? 'tutorial-hidden' : ''}">
         ${createForagerSlotHTML(biome, 0)}
         ${createForagerSlotHTML(biome, 1)}
         ${createForagerSlotHTML(biome, 2)}
@@ -328,7 +356,7 @@ function createForagerSlotHTML(biome, slotIndex) {
           </svg>
           <img src="/assets/ui/slot-empty.png" alt="Empty" class="forager-bird-icon" />
         </div>
-        <div class="slot-label">Forager</div>
+        <div class="slot-label">Forage?</div>
       </div>
     `;
   }
@@ -405,7 +433,7 @@ function createSurveySlotHTML(biome) {
           <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
         </div>
         <div class="progress-text">${currentProgress.toLocaleString()} / ${totalCost.toLocaleString()}</div>
-        <div class="surveyor-label slot-label">${surveyor ? (surveyor.customDesignation || surveyor.speciesName) : 'Assign Surveyor'}</div>
+        <div class="surveyor-label slot-label">${surveyor ? (surveyor.customDesignation || surveyor.speciesName) : 'Survey?'}</div>
       </div>
     </div>
   `;
@@ -432,6 +460,34 @@ function attachBiomeEventListeners(card, biome) {
         iconWrapper.addEventListener('click', (e) => {
           e.stopPropagation();
 
+          // Tutorial: Disable manual tapping until tutorial step 4 (MANUAL_TAPPING)
+          const tutorialActive = isTutorialActive();
+          const tutorialStep = getCurrentTutorialStep();
+          if (tutorialActive && tutorialStep < TUTORIAL_STEPS.MANUAL_TAPPING) {
+            return; // Don't allow manual tapping yet
+          }
+
+          // Check if bird has no energy
+          if (forager.birdId) {
+            const bird = getBirdById(forager.birdId);
+            if (bird && bird.vitalityPercent <= 0) {
+              // Show popup and unassign bird
+              import('./modals.js').then(modalModule => {
+                modalModule.showTutorialModal(
+                  'This bird is out of energy and needs to rest in the Sanctuary!',
+                  'bold',
+                  () => {
+                    modalModule.hideTutorialModal();
+                  }
+                );
+              });
+              // Unassign the exhausted bird
+              unassignForager(biome.id, slotIndex);
+              updateWildsUI();
+              return;
+            }
+          }
+
           let seeds = 0;
           if (forager.birdId) {
             // If bird assigned, calculate based on bird stats
@@ -445,6 +501,13 @@ function attachBiomeEventListeners(card, biome) {
           if (seeds > 0) {
             addSeeds(Math.floor(seeds));
             showFloatingText(iconWrapper, Math.floor(seeds));
+
+            // Tutorial hook
+            import('../systems/tutorial.js').then(module => {
+              if (module.handleManualTap) {
+                module.handleManualTap();
+              }
+            });
           }
         });
       }
@@ -561,7 +624,9 @@ function showBirdSelector(biomeId, slotIndex) {
     .filter(bird => bird.id !== currentBird?.id)
     .map(bird => ({
       bird,
-      isAvailable: bird.location === 'collection',
+      isAvailable: bird.location === 'collection' && bird.vitalityPercent > 0,
+      needsRest: bird.location === 'collection' && bird.vitalityPercent <= 0,
+      isAssigned: bird.location !== 'collection',
       locationLabel: getBirdLocationLabel(bird)
     }));
 
@@ -583,19 +648,27 @@ function showBirdSelector(biomeId, slotIndex) {
   }
 
   const availableBirds = allBirds.filter(b => b.isAvailable);
-  const unavailableBirds = allBirds.filter(b => !b.isAvailable);
+  const assignedBirds = allBirds.filter(b => b.isAssigned);
+  const exhaustedBirds = allBirds.filter(b => b.needsRest);
 
   if (availableBirds.length > 0) {
-    optionsHTML += `<div class="section-label">Available Birds</div>`;
+    optionsHTML += `<div class="section-label">Available</div>`;
     availableBirds.forEach(({ bird }) => {
       optionsHTML += createBirdSelectButton(bird, false);
     });
   }
 
-  if (unavailableBirds.length > 0) {
-    optionsHTML += `<div class="section-label">In Use</div>`;
-    unavailableBirds.forEach(({ bird, locationLabel }) => {
+  if (assignedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Assigned</div>`;
+    assignedBirds.forEach(({ bird, locationLabel }) => {
       optionsHTML += createBirdSelectButton(bird, true, locationLabel);
+    });
+  }
+
+  if (exhaustedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Needs Rest</div>`;
+    exhaustedBirds.forEach(({ bird }) => {
+      optionsHTML += createBirdSelectButton(bird, true, 'Out of energy');
     });
   }
 
@@ -614,6 +687,21 @@ function showBirdSelector(biomeId, slotIndex) {
   `;
 
   modal.classList.remove('hidden');
+
+  // Tutorial: When modal opens at FORAGER_ASSIGNMENT step, advance to SELECT_BIRD and show arrow
+  if (isTutorialActive() && getCurrentTutorialStep() === TUTORIAL_STEPS.FORAGER_ASSIGNMENT) {
+    setTimeout(() => {
+      import('../systems/tutorial.js').then(module => {
+        module.advanceTutorial(TUTORIAL_STEPS.SELECT_BIRD);
+        // Show arrow pointing to the Forest Jay bird button
+        setTimeout(() => {
+          import('../ui/tutorialArrow.js').then(arrowModule => {
+            arrowModule.showTutorialArrow('.bird-select-btn[data-bird-id]', 'down');
+          });
+        }, 200);
+      });
+    }, 100);
+  }
 
   // Unassign handler
   const unassignBtn = content.querySelector('[data-action="unassign"]');
@@ -849,4 +937,251 @@ function showReassignmentConfirmation(birdId, currentLocation, targetLocation, a
   content.querySelector('#cancel-reassign-btn').addEventListener('click', () => {
     parentModal.classList.add('hidden');
   });
+}
+
+// ========================================
+// HINT SYSTEM - Golden glow guide
+// ========================================
+
+let hintTimeout = null;
+let lastScreenCheck = null;
+let hintShown = false;
+
+// Clear all hint glows
+function clearHints() {
+  document.querySelectorAll('.hint-glow').forEach(el => {
+    el.classList.remove('hint-glow');
+  });
+}
+
+// Check if player needs a hint (called when Wilds screen is active)
+export function checkWildsHints() {
+  // Don't show hints during early tutorial steps (before FREE_PLAY)
+  const tutorialStep = getCurrentTutorialStep();
+  if (isTutorialActive() && tutorialStep < TUTORIAL_STEPS.FREE_PLAY) return;
+
+  // Don't show hints if we're not on Wilds screen
+  const wildsScreen = document.getElementById('screen-wilds');
+  if (!wildsScreen || !wildsScreen.classList.contains('active')) {
+    clearHints();
+    if (hintTimeout) clearTimeout(hintTimeout);
+    hintTimeout = null;
+    lastScreenCheck = null;
+    hintShown = false;
+    return;
+  }
+
+  // Start 5-second timer when screen becomes active (only once)
+  if (lastScreenCheck === null && !hintShown) {
+    lastScreenCheck = Date.now();
+    if (hintTimeout) clearTimeout(hintTimeout);
+    hintTimeout = setTimeout(() => {
+      showNextHint();
+      hintShown = true;
+    }, 5000);
+  }
+}
+
+// Determine and show the next appropriate hint
+function showNextHint() {
+  if (!gameState) return;
+
+  console.log('showNextHint called');
+  clearHints();
+
+  // Get unassigned birds
+  const unassignedBirds = gameState.specimens.filter(bird => bird.location === 'collection');
+  console.log('Unassigned birds:', unassignedBirds.length);
+
+  // (A) Empty slots with available birds - prioritize surveyor, then foragers
+  if (unassignedBirds.length > 0) {
+    // Check all unlocked biomes for empty slots
+    for (const biome of gameState.biomes) {
+      if (!biome.unlocked) continue;
+
+      // Check surveyor first
+      if (!biome.survey.surveyorId) {
+        const surveyLabel = document.querySelector(`.biome-card[data-biome-id="${biome.id}"] .surveyor-label`);
+        if (surveyLabel) {
+          console.log('Hint (A): Pulsing surveyor label for', biome.id);
+          surveyLabel.classList.add('hint-glow');
+          return;
+        }
+      }
+
+      // Check foragers
+      for (let i = 0; i < biome.foragers.length; i++) {
+        const forager = biome.foragers[i];
+        if (forager.unlocked && !forager.birdId) {
+          const foragerLabel = document.querySelector(`.bird-slot[data-biome-id="${biome.id}"][data-slot-type="forager"][data-slot-index="${i}"] .slot-label`);
+          if (foragerLabel) {
+            console.log('Hint (A): Pulsing forager label for', biome.id, 'slot', i);
+            foragerLabel.classList.add('hint-glow');
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // (B) No unassigned birds - pulse survey to get more birds
+  if (unassignedBirds.length === 0) {
+    // Find first unlocked biome with incomplete survey
+    for (const biome of gameState.biomes) {
+      if (!biome.unlocked) continue;
+
+      const totalCost = SURVEY_COSTS[biome.id] || 360;
+      if (biome.survey.progress < totalCost) {
+        const surveySlot = document.querySelector(`.biome-card[data-biome-id="${biome.id}"] .surveyor-slot`);
+        if (surveySlot) {
+          console.log('Hint (B): Pulsing survey slot for', biome.id);
+          surveySlot.classList.add('hint-glow');
+          return;
+        }
+      }
+    }
+  }
+
+  // (D) Can afford an upgrade - pulse that upgrade button (check before C)
+  const nextAffordableUpgrade = findNextAffordableUpgrade();
+  if (nextAffordableUpgrade) {
+    const button = document.querySelector(nextAffordableUpgrade.selector);
+    if (button) {
+      console.log('Hint (D): Pulsing upgrade button', nextAffordableUpgrade.type);
+      button.classList.add('hint-glow');
+      return;
+    }
+  }
+
+  // (C) All slots full but can't afford upgrades - pulse highest forager to tap
+  // Find highest-earning forager slot
+  let highestForager = null;
+  let highestIncome = 0;
+
+  for (const biome of gameState.biomes) {
+    if (!biome.unlocked) continue;
+
+    for (let i = 0; i < biome.foragers.length; i++) {
+      const forager = biome.foragers[i];
+      if (forager.unlocked && forager.birdId) {
+        const income = calculateForagerSlotIncome(biome.id, i, forager.birdId);
+        if (income > highestIncome) {
+          highestIncome = income;
+          highestForager = { biomeId: biome.id, slotIndex: i };
+        }
+      }
+    }
+  }
+
+  if (highestForager) {
+    const iconWrapper = document.querySelector(`.bird-slot[data-biome-id="${highestForager.biomeId}"][data-slot-type="forager"][data-slot-index="${highestForager.slotIndex}"] .forager-icon-wrapper`);
+    if (iconWrapper) {
+      console.log('Hint (C): Pulsing highest forager for', highestForager.biomeId, 'slot', highestForager.slotIndex);
+      iconWrapper.classList.add('hint-glow');
+      return;
+    }
+  }
+
+  console.log('No hint applied');
+}
+
+// Find the next affordable upgrade
+function findNextAffordableUpgrade() {
+  if (!gameState) return null;
+
+  // Check forager slot unlocks
+  for (const biome of gameState.biomes) {
+    if (!biome.unlocked) continue;
+
+    for (let i = 0; i < biome.foragers.length; i++) {
+      const forager = biome.foragers[i];
+      if (!forager.unlocked && gameState.seeds >= forager.unlockCost) {
+        return {
+          type: 'forager',
+          selector: `.bird-slot.locked[data-biome-id="${biome.id}"][data-slot-type="forager"][data-slot-index="${i}"]`
+        };
+      }
+    }
+  }
+
+  // Check biome unlocks
+  for (const biome of gameState.biomes) {
+    if (!biome.unlocked) {
+      const unlockCost = UNLOCK_COSTS.biomes[biome.id];
+      if (unlockCost && gameState.seeds >= unlockCost) {
+        return {
+          type: 'biome',
+          selector: `.biome-card[data-biome-id="${biome.id}"] .biome-unlock-btn`
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+// ========================================
+// EXHAUSTED BIRD HANDLER
+// ========================================
+
+// Handle birds that just ran out of energy
+export function handleExhaustedBirds(exhaustedBirds) {
+  // Only show notifications if on Wilds screen
+  const wildsScreen = document.getElementById('screen-wilds');
+  if (!wildsScreen || !wildsScreen.classList.contains('active')) return;
+
+  exhaustedBirds.forEach(({ bird, biomeId, type, slotIndex }) => {
+    // Unassign the bird
+    if (type === 'forager') {
+      unassignForager(biomeId, slotIndex);
+    } else if (type === 'surveyor') {
+      unassignSurveyor(biomeId);
+    }
+  });
+
+  // Update UI to show unassigned birds FIRST
+  updateWildsUI();
+
+  // Then show notifications AFTER UI is rendered
+  setTimeout(() => {
+    exhaustedBirds.forEach(({ bird, biomeId, type }) => {
+      const activityText = type === 'forager' ? 'Foraging' : 'Surveying';
+      showExhaustedNotification(bird, activityText, biomeId);
+    });
+  }, 100);
+}
+
+// Show a somber notification for exhausted birds
+function showExhaustedNotification(bird, activityText, biomeId) {
+  const biomeCard = document.querySelector(`.biome-card[data-biome-id="${biomeId}"]`);
+  if (!biomeCard) return;
+
+  const notification = document.createElement('div');
+  notification.className = 'exhausted-notification';
+  notification.innerHTML = `
+    <div class="exhausted-content">
+      <div class="exhausted-icon">😴</div>
+      <div class="exhausted-text">
+        <div class="exhausted-bird-name">${bird.customDesignation || bird.speciesName}</div>
+        <div class="exhausted-message">stopped ${activityText}</div>
+        <div class="exhausted-hint">Recover energy in the Sanctuary</div>
+      </div>
+    </div>
+  `;
+
+  biomeCard.style.position = 'relative';
+  biomeCard.appendChild(notification);
+
+  // Fade in
+  setTimeout(() => {
+    notification.style.opacity = '1';
+  }, 50);
+
+  // Fade out and remove after 4 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      notification.remove();
+    }, 500);
+  }, 4000);
 }

@@ -54,6 +54,14 @@ export function assignPerch(slot, birdId) {
   }
 
   console.log(`Assigned ${bird.speciesName} to Perch ${slot + 1}`);
+
+  // Tutorial hook
+  import('../systems/tutorial.js').then(module => {
+    if (module.handlePerchAssignment) {
+      module.handlePerchAssignment(slot);
+    }
+  });
+
   return true;
 }
 
@@ -103,6 +111,14 @@ export function instantRestore(slot) {
   bird.vitalityPercent = Math.min(100, bird.vitalityPercent + MANUAL_RESTORE_PERCENT_PER_TAP);
 
   console.log(`Manual restore: +${MANUAL_RESTORE_PERCENT_PER_TAP}% vitality`);
+
+  // Tutorial hook
+  import('../systems/tutorial.js').then(module => {
+    if (module.handleManualRestore) {
+      module.handleManualRestore();
+    }
+  });
+
   return true;
 }
 

@@ -3,11 +3,12 @@ import './styles.css';
 import { GAME_CONFIG, BIOMES } from './core/constants.js';
 import { initializeState, saveGame, resetGameState, gameState, addSeeds } from './core/state.js';
 import { startGameLoop, startUILoop } from './core/gameLoop.js';
-import { initWildsUI, updateWildsUI } from './ui/wilds.js';
+import { initWildsUI, updateWildsUI, checkWildsHints } from './ui/wilds.js';
 import { initSanctuaryUI, updateSanctuaryUI } from './ui/sanctuary.js';
 import { initHatcheryUI, updateHatcheryUI } from './ui/hatchery.js';
 import { createSpecimen } from './data/species.js';
 import { formatOfflineTime } from './systems/offline.js';
+import { initTutorial, isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from './systems/tutorial.js';
 
 console.log('SANCTUARY - Initializing...');
 console.log('Version:', GAME_CONFIG.VERSION);
@@ -28,8 +29,13 @@ function init() {
   initSettings();
   initOrientationLock();
 
-  // Show offline progress modal if there was any progress
-  if (window.offlineProgressData) {
+  // Initialize tutorial if active
+  if (isTutorialActive()) {
+    initTutorial();
+  }
+
+  // Show offline progress modal if there was any progress (skip if tutorial active)
+  if (window.offlineProgressData && !isTutorialActive()) {
     setTimeout(() => {
       showOfflineProgressModal(window.offlineProgressData);
       delete window.offlineProgressData;
@@ -56,6 +62,50 @@ function initNavigation() {
     button.addEventListener('click', () => {
       const targetScreen = button.dataset.screen;
 
+      // Check if locked during tutorial
+      if (isTutorialActive()) {
+        const currentStep = getCurrentTutorialStep();
+
+        // During GROOMING step, prevent navigation away from sanctuary
+        if (currentStep === TUTORIAL_STEPS.GROOMING && targetScreen !== 'sanctuary') {
+          return;
+        }
+
+        if (targetScreen === 'sanctuary' && !gameState.sanctuaryUnlocked) {
+          // Try to unlock sanctuary
+          if (gameState.seeds >= 125) {
+            import('./systems/tutorial.js').then(module => {
+              module.handleSanctuaryUnlock();
+            });
+          }
+          return;
+        }
+        if (targetScreen === 'hatchery' && !gameState.hatcheryUnlocked) {
+          // Try to unlock hatchery
+          if (gameState.seeds >= 1000) {
+            import('./systems/tutorial.js').then(module => {
+              module.handleHatcheryUnlock();
+            });
+          } else {
+            // Show message if not enough seeds
+            import('./ui/modals.js').then(modalModule => {
+              modalModule.showTutorialModal(
+                'You don\'t have enough seeds - gather more in the wilds',
+                'bold',
+                () => {
+                  modalModule.hideTutorialModal();
+                  // Hide the arrow when modal closes
+                  import('./ui/tutorialArrow.js').then(arrowModule => {
+                    arrowModule.hideTutorialArrow();
+                  });
+                }
+              );
+            });
+          }
+          return;
+        }
+      }
+
       // Update nav buttons
       navButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
@@ -71,6 +121,7 @@ function initNavigation() {
       // Update UI for the active screen
       if (targetScreen === 'wilds') {
         updateWildsUI();
+        checkWildsHints(); // Start hint timer
       } else if (targetScreen === 'sanctuary') {
         updateSanctuaryUI();
       } else if (targetScreen === 'hatchery') {
@@ -78,6 +129,54 @@ function initNavigation() {
       }
     });
   });
+
+  // Update nav button display based on tutorial state
+  updateNavigationDisplay();
+}
+
+// Update navigation button display during tutorial
+export function updateNavigationDisplay() {
+  const sanctuaryBtn = document.querySelector('.nav-button[data-screen="sanctuary"]');
+  const hatcheryBtn = document.querySelector('.nav-button[data-screen="hatchery"]');
+
+  console.log('updateNavigationDisplay called', {
+    tutorialActive: isTutorialActive(),
+    sanctuaryUnlocked: gameState?.sanctuaryUnlocked,
+    hatcheryUnlocked: gameState?.hatcheryUnlocked
+  });
+
+  if (!isTutorialActive()) {
+    // Normal display
+    if (sanctuaryBtn) sanctuaryBtn.textContent = 'Sanctuary';
+    if (hatcheryBtn) hatcheryBtn.textContent = 'Hatchery';
+    console.log('Tutorial not active, showing normal nav');
+    return;
+  }
+
+  // Tutorial mode - show locks with simple text (no div wrapper)
+  if (sanctuaryBtn && !gameState.sanctuaryUnlocked) {
+    sanctuaryBtn.textContent = '🔒 125 🫘';
+    sanctuaryBtn.style.fontSize = '12px';
+    sanctuaryBtn.style.textTransform = 'none';
+    console.log('Set sanctuary lock icon');
+  } else if (sanctuaryBtn) {
+    sanctuaryBtn.textContent = 'Sanctuary';
+    sanctuaryBtn.style.fontSize = '';
+    sanctuaryBtn.style.textTransform = '';
+    console.log('Set sanctuary unlocked');
+  }
+
+  if (hatcheryBtn && !gameState.hatcheryUnlocked) {
+    hatcheryBtn.textContent = '🔒 1000 🫘';
+    hatcheryBtn.style.fontSize = '12px';
+    hatcheryBtn.style.textTransform = 'none';
+    console.log('Set hatchery lock icon');
+  } else if (hatcheryBtn) {
+    hatcheryBtn.textContent = 'Hatchery';
+    hatcheryBtn.style.fontSize = '';
+    hatcheryBtn.style.textTransform = '';
+    console.log('Set hatchery unlocked');
+  }
 }
 
 function initSettings() {
@@ -182,15 +281,17 @@ function showResetConfirmation() {
 
   // Handle confirm
   content.querySelector('#confirm-reset-btn').addEventListener('click', () => {
+    // Clear any tutorial arrows first
+    import('./ui/tutorialArrow.js').then(module => {
+      module.hideTutorialArrow();
+    });
+
     resetGameState();
-    modal.classList.add('hidden');
 
-    // Refresh all UI
-    updateWildsUI();
-    updateSanctuaryUI();
-    updateHatcheryUI();
+    console.log('Game reset successfully! Reloading page...');
 
-    console.log('Game reset successfully!');
+    // Force refresh the page to ensure clean state
+    window.location.reload();
   });
 
   // Handle cancel - go back to settings

@@ -157,7 +157,7 @@ export const MATURITY_COSTS = {
 
 // Survey costs (total seeds required to complete survey)
 export const SURVEY_COSTS = {
-  forest: 360,
+  forest: 180,
   mountain: 7200,
   coastal: 67500,
   arid: 864000,

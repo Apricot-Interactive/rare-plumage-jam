@@ -77,6 +77,18 @@ export function updateHatcheryUI() {
   renderBreedingPrograms();
   renderMatureBirds();
   updateBreedingProgressBars();
+
+  // Tutorial: Show arrow to Parent 1 when entering hatchery during BREEDING_TUTORIAL
+  import('../systems/tutorial.js').then(module => {
+    if (module.isTutorialActive && module.isTutorialActive() &&
+        module.getCurrentTutorialStep && module.getCurrentTutorialStep() === module.TUTORIAL_STEPS.BREEDING_TUTORIAL) {
+      setTimeout(() => {
+        import('../ui/tutorialArrow.js').then(arrowModule => {
+          arrowModule.showTutorialArrow('.breeding-program[data-program="0"] .parent-slot:first-child .parent-action-btn', 'down');
+        });
+      }, 300);
+    }
+  });
 }
 
 export function renderBreedingPrograms() {

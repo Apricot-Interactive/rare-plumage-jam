@@ -4,8 +4,10 @@ import { assignPerch, unassignPerch, unlockPerchSlot, instantRestore, matureBird
 import { RARITY, TRAITS, PRESTIGE_BIOME_ORDER, MATURITY_COSTS } from '../core/constants.js';
 import { updateWildsUI } from './wilds.js';
 import { formatCompact } from '../utils/numbers.js';
+import { isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from '../systems/tutorial.js';
 
 export function initSanctuaryUI() {
+  hideHeadersDuringTutorial();
   renderCrystals();
   renderPerches();
   renderCollection();
@@ -13,6 +15,7 @@ export function initSanctuaryUI() {
 }
 
 export function updateSanctuaryUI() {
+  hideHeadersDuringTutorial();
   renderCrystals();
   renderPerches();
   renderCollection();
@@ -20,10 +23,45 @@ export function updateSanctuaryUI() {
   checkWinCondition();
 }
 
+// Hide section headers during tutorial (before FREE_PLAY)
+function hideHeadersDuringTutorial() {
+  const sanctuaryScreen = document.getElementById('screen-sanctuary');
+  if (!sanctuaryScreen) return;
+
+  const tutorialStep = getCurrentTutorialStep();
+  const shouldHide = isTutorialActive() && tutorialStep < TUTORIAL_STEPS.FREE_PLAY;
+
+  const headers = sanctuaryScreen.querySelectorAll('.section-header');
+  headers.forEach(header => {
+    const headerText = header.textContent.trim();
+
+    // Hide all headers before FREE_PLAY
+    if (shouldHide) {
+      header.classList.add('tutorial-hidden');
+    }
+    // After FREE_PLAY, hide Artifacts header until hatchery is unlocked
+    else if (headerText === 'Artifacts' && isTutorialActive() && !gameState.hatcheryUnlocked) {
+      header.classList.add('tutorial-hidden');
+    }
+    else {
+      header.classList.remove('tutorial-hidden');
+    }
+  });
+}
+
 // Render crystal display (5 squares below Distinguished Guests)
 export function renderCrystals() {
   const container = document.getElementById('crystals-container');
   if (!container || !gameState) return;
+
+  // Hide crystals during tutorial (before FREE_PLAY and until hatchery unlocked)
+  const tutorialStep = getCurrentTutorialStep();
+  if (isTutorialActive() && (tutorialStep < TUTORIAL_STEPS.FREE_PLAY || !gameState.hatcheryUnlocked)) {
+    container.classList.add('tutorial-hidden');
+    return;
+  } else {
+    container.classList.remove('tutorial-hidden');
+  }
 
   container.innerHTML = '';
 
@@ -61,7 +99,15 @@ export function renderPerches() {
 
   container.innerHTML = '';
 
+  // During tutorial GROOMING step, only show first perch
+  const tutorialActive = isTutorialActive();
+  const tutorialStep = getCurrentTutorialStep();
+  const showOnlyFirstPerch = tutorialActive && tutorialStep === TUTORIAL_STEPS.GROOMING;
+
   gameState.perches.forEach(perch => {
+    if (showOnlyFirstPerch && perch.slot !== 0) {
+      return; // Skip all perches except slot 0 during grooming tutorial
+    }
     const perchEl = createPerchSlot(perch);
     container.appendChild(perchEl);
   });
@@ -117,7 +163,7 @@ function createPerchSlot(perch) {
         <div class="perch-empty-icon">🪹</div>
       </div>
       <div class="perch-card-bottom">
-        <div class="perch-empty-label">Assign Guest</div>
+        <div class="perch-empty-label">Rest?</div>
       </div>
     `;
 
@@ -221,10 +267,12 @@ function showBirdSelector(slot) {
   const allBirds = gameState.specimens
     .filter(bird => bird.id !== currentBird?.id) // Don't show current bird in the list
     .map(bird => {
-      const isAvailable = bird.location === 'collection';
+      const isAvailable = bird.location === 'collection' && bird.vitalityPercent > 0;
+      const needsRest = bird.location === 'collection' && bird.vitalityPercent <= 0;
+      const isAssigned = bird.location !== 'collection';
       let locationLabel = '';
 
-      if (!isAvailable) {
+      if (isAssigned) {
         if (bird.location.startsWith('forager_')) {
           const foragerSlot = parseInt(bird.location.split('_')[1]);
           locationLabel = `Foraging (Slot ${foragerSlot + 1})`;
@@ -238,7 +286,7 @@ function showBirdSelector(slot) {
         }
       }
 
-      return { bird, isAvailable, locationLabel };
+      return { bird, isAvailable, needsRest, isAssigned, locationLabel };
     });
 
   // Create modal
@@ -260,12 +308,13 @@ function showBirdSelector(slot) {
     `;
   }
 
-  // Add all birds (available first, then unavailable)
+  // Add all birds (available first, then assigned, then exhausted)
   const availableBirds = allBirds.filter(b => b.isAvailable);
-  const unavailableBirds = allBirds.filter(b => !b.isAvailable);
+  const assignedBirds = allBirds.filter(b => b.isAssigned);
+  const exhaustedBirds = allBirds.filter(b => b.needsRest);
 
   if (availableBirds.length > 0) {
-    optionsHTML += `<div class="section-label">Available Birds</div>`;
+    optionsHTML += `<div class="section-label">Available</div>`;
     availableBirds.forEach(({ bird }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
@@ -298,9 +347,9 @@ function showBirdSelector(slot) {
     });
   }
 
-  if (unavailableBirds.length > 0) {
-    optionsHTML += `<div class="section-label">In Use</div>`;
-    unavailableBirds.forEach(({ bird, locationLabel }) => {
+  if (assignedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Assigned</div>`;
+    assignedBirds.forEach(({ bird, locationLabel }) => {
       const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
       const vitalityPercent = bird.vitalityPercent;
       const maturityPercent = bird.isMature ? 100 : 0;
@@ -333,6 +382,33 @@ function showBirdSelector(slot) {
     });
   }
 
+  if (exhaustedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Needs Rest</div>`;
+    exhaustedBirds.forEach(({ bird }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      optionsHTML += `
+        <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="Out of energy">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Frame Ring (outermost, drawn first) -->
+              <circle class="frame-ring greyed" cx="50" cy="50" r="37" />
+              <!-- Vitality Ring (empty) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+              <!-- Maturity Ring -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+          </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${traitNames}</span>
+            <span class="btn-location">Out of energy</span>
+          </span>
+        </button>
+      `;
+    });
+  }
+
   if (allBirds.length === 0) {
     optionsHTML += `<p class="empty-message">No birds available</p>`;
   }
@@ -348,6 +424,15 @@ function showBirdSelector(slot) {
   `;
 
   modal.classList.remove('hidden');
+
+  // Tutorial: Show arrow pointing to first bird during GROOMING step
+  if (isTutorialActive() && getCurrentTutorialStep() === TUTORIAL_STEPS.GROOMING && slot === 0) {
+    setTimeout(() => {
+      import('../ui/tutorialArrow.js').then(arrowModule => {
+        arrowModule.showTutorialArrow('.bird-select-btn[data-bird-id]', 'down');
+      });
+    }, 200);
+  }
 
   // Handle unassign
   const unassignBtn = content.querySelector('[data-action="unassign"]');
@@ -423,6 +508,15 @@ function showReassignmentConfirmation(targetSlot, birdId, currentLocation, paren
 export function renderCollection() {
   const container = document.getElementById('collection-container');
   if (!container || !gameState) return;
+
+  // Hide collection during tutorial (before FREE_PLAY)
+  const tutorialStep = getCurrentTutorialStep();
+  if (isTutorialActive() && tutorialStep < TUTORIAL_STEPS.FREE_PLAY) {
+    container.classList.add('tutorial-hidden');
+    return;
+  } else {
+    container.classList.remove('tutorial-hidden');
+  }
 
   container.innerHTML = '';
 
@@ -601,6 +695,15 @@ export function updatePerchVitalityBars() {
 export function renderBonuses() {
   const container = document.getElementById('bonuses-display');
   if (!container || !gameState) return;
+
+  // Hide bonuses during tutorial (before FREE_PLAY)
+  const tutorialStep = getCurrentTutorialStep();
+  if (isTutorialActive() && tutorialStep < TUTORIAL_STEPS.FREE_PLAY) {
+    container.classList.add('tutorial-hidden');
+    return;
+  } else {
+    container.classList.remove('tutorial-hidden');
+  }
 
   const bonuses = calculateGuestBonuses();
 

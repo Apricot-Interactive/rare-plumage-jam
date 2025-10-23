@@ -5,9 +5,10 @@ import { calculateForagerIncome, updateForagerVitality } from '../systems/forage
 import { updateSurveyProgress } from '../systems/surveys.js';
 import { updateGrooming } from '../systems/sanctuary.js';
 import { updateBreedingProgress } from '../systems/breeding.js';
-import { updateForagerVitalityUI, updateSurveyProgressUI, showForagerIncomeFloatingText } from '../ui/wilds.js';
+import { updateForagerVitalityUI, updateSurveyProgressUI, showForagerIncomeFloatingText, checkWildsHints } from '../ui/wilds.js';
 import { updatePerchCooldowns, updatePerchVitalityBars } from '../ui/sanctuary.js';
 import { updateBreedingProgressBars } from '../ui/hatchery.js';
+import { isTutorialActive, checkSanctuaryUnlock, checkHatcheryUnlock } from '../systems/tutorial.js';
 
 let lastFrameTime = Date.now();
 let gameLoopId = null;
@@ -53,6 +54,9 @@ export function startUILoop() {
     updatePerchVitalityBars();
     updateBreedingProgressBars();
 
+    // Check for hints
+    checkWildsHints();
+
     // Show floating text for forager income every second
     const now = Date.now();
     if (now - lastFloatingTextTime >= FLOATING_TEXT_INTERVAL) {
@@ -90,10 +94,27 @@ function updateGameSystems(deltaTime) {
   updateBreedingProgress(deltaTime);
 }
 
+let lastSeedsValue = 0;
+
 function updateSeedsDisplay() {
   const seedsElement = document.getElementById('seeds-amount');
   if (seedsElement && gameState) {
     seedsElement.textContent = Math.floor(gameState.seeds).toLocaleString();
+  }
+
+  // Update tutorial navigation display when seeds change (only if amount changed)
+  if (isTutorialActive() && Math.floor(gameState.seeds) !== lastSeedsValue) {
+    lastSeedsValue = Math.floor(gameState.seeds);
+
+    import('../main.js').then(module => {
+      if (module.updateNavigationDisplay) {
+        module.updateNavigationDisplay();
+      }
+    });
+
+    // Check for sanctuary/hatchery unlock milestones
+    checkSanctuaryUnlock();
+    checkHatcheryUnlock();
   }
 }
 

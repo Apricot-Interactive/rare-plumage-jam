@@ -424,6 +424,10 @@ button.danger {
   background-color: var(--bg-secondary);
   color: var(--text-secondary);
   transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .nav-button:last-child {
@@ -3162,6 +3166,60 @@ button.danger {
   color: var(--text-secondary);
 }
 
+/* Exhausted bird notification */
+.exhausted-notification {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.exhausted-content {
+  text-align: center;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.exhausted-icon {
+  font-size: 48px;
+  opacity: 0.7;
+}
+
+.exhausted-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.exhausted-bird-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.exhausted-message {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.exhausted-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -3177,4 +3235,240 @@ button.danger {
     opacity: 0;
     transform: translate(-50%, -150%);
   }
+}
+
+/* ========================================
+   TUTORIAL SYSTEM STYLES
+   ======================================== */
+
+/* Tutorial arrow - bouncing animated pointer */
+.tutorial-arrow {
+  position: fixed;
+  font-size: 48px;
+  color: #FFD700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8),
+               0 0 20px rgba(255, 215, 0, 0.6);
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  transform: translate(-50%, -50%);
+}
+
+.tutorial-arrow.visible {
+  opacity: 1;
+  animation: tutorialBounce 0.8s ease-in-out infinite;
+}
+
+@keyframes tutorialBounce {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-10px);
+  }
+}
+
+/* Tutorial arrow directions */
+.tutorial-arrow[data-direction="up"] {
+  animation: tutorialBounceUp 0.8s ease-in-out infinite;
+}
+
+.tutorial-arrow[data-direction="down"] {
+  animation: tutorialBounceDown 0.8s ease-in-out infinite;
+}
+
+.tutorial-arrow[data-direction="left"] {
+  animation: tutorialBounceLeft 0.8s ease-in-out infinite;
+}
+
+.tutorial-arrow[data-direction="right"] {
+  animation: tutorialBounceRight 0.8s ease-in-out infinite;
+}
+
+@keyframes tutorialBounceUp {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(10px);
+  }
+}
+
+@keyframes tutorialBounceDown {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-10px);
+  }
+}
+
+@keyframes tutorialBounceLeft {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateX(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateX(10px);
+  }
+}
+
+@keyframes tutorialBounceRight {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateX(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateX(-10px);
+  }
+}
+
+/* Hint glow animation */
+.hint-glow {
+  animation: hintPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+}
+
+@keyframes hintPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 215, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+  }
+}
+
+/* Tutorial modal text styles */
+.modal-text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+.modal-text-italic {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #555;
+  font-style: italic;
+  margin: 0 0 20px 0;
+}
+
+.modal-text-bold {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #222;
+  font-weight: bold;
+  margin: 0 0 20px 0;
+}
+
+/* Bird celebration card */
+.celebration-modal {
+  text-align: center;
+}
+
+.bird-celebration-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.bird-icon-large {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bird-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bird-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid;
+  pointer-events: none;
+}
+
+.bird-ring.ring-1 {
+  width: 100%;
+  height: 100%;
+  border-color: #888;
+}
+
+.bird-ring.ring-2 {
+  width: 83%;
+  height: 83%;
+  border-color: #4CAF50;
+}
+
+.bird-ring.ring-3 {
+  width: 66%;
+  height: 66%;
+  border-color: #2196F3;
+}
+
+.bird-ring.ring-4 {
+  width: 49%;
+  height: 49%;
+  border-color: #9C27B0;
+}
+
+.bird-ring.ring-5 {
+  width: 32%;
+  height: 32%;
+  border-color: #FFD700;
+}
+
+.bird-sprite {
+  font-size: 60px;
+  z-index: 1;
+  position: relative;
+}
+
+.bird-celebration-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.bird-celebration-stars {
+  font-size: 24px;
+}
+
+/* Tutorial hidden elements */
+.tutorial-hidden {
+  display: none !important;
+}
+
+/* Tutorial disabled elements */
+.tutorial-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Lock icon for locked tabs */
+.nav-button .lock-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.nav-button .lock-icon .seeds-icon {
+  font-size: 11px;
 }

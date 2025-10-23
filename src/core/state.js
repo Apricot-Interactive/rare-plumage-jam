@@ -33,7 +33,7 @@ function createDefaultState() {
 
       // Survey slot
       survey: {
-        progress: 0, // Progress in seeds contributed (out of SURVEY_COSTS total)
+        progress: index === 0 ? 170 : 0, // Tutorial: Forest starts 4 clicks short (170/180, each click = 2.5)
         surveyorId: null, // Bird assigned to survey
         lastUpdateTime: null
       }
@@ -55,31 +55,22 @@ function createDefaultState() {
       { program: 2, unlocked: false, unlockCost: UNLOCK_COSTS.breedingPrograms[2], active: false, lineage1Id: null, lineage2Id: null, progress: 0, startTime: null, estimatedDuration: null, lastUpdateTime: null }
     ],
 
-    // Specimens (birds) - Start with 1 Common bird
-    specimens: [
-      {
-        id: generateId('bird'),
-        speciesName: 'Forest Sparrow',
-        customDesignation: null,
-        distinction: 1,
-        biome: 'forest',
-        traits: ['alacrity'],
-        vitalityPercent: 100,
-        isMature: false,
-        maturityProgress: 0,
-        cataloguedAt: Date.now(),
-        location: 'collection',
-        isLegendary: false,
-        restoreCooldownUntil: 0
-      }
-    ],
+    // Specimens (birds) - Tutorial starts with 0 birds
+    specimens: [],
 
-    cataloguedSpecies: ['Forest Sparrow'],
+    cataloguedSpecies: [],
     legendariesAcquired: [],
 
     // Narrative
     orientationComplete: false,
     narrativeBeatsShown: [],
+
+    // Tutorial
+    tutorialActive: true,
+    tutorialStep: 0,
+    tutorialCompleted: false,
+    sanctuaryUnlocked: false,
+    hatcheryUnlocked: false,
 
     // Timestamps
     lastSaveTime: Date.now(),

@@ -76,24 +76,37 @@ export function updateForagerVitality(dt) {
   if (!gameState) return;
 
   const dtSeconds = dt / 1000; // Convert milliseconds to seconds
+  const exhaustedBirds = []; // Track birds that just became exhausted
 
   gameState.biomes.forEach(biome => {
     if (!biome.unlocked) return;
 
     // Drain vitality for foragers
-    biome.foragers.forEach(forager => {
+    biome.foragers.forEach((forager, slotIndex) => {
       if (!forager.birdId) return;
 
       const bird = getBirdById(forager.birdId);
       if (!bird) return;
 
       if (bird.vitalityPercent > 0) {
+        const previousVitality = bird.vitalityPercent;
+
         // Drain 1 energy per second
         const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
         const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
         const percentDrained = (energyDrained / maxEnergy) * 100;
 
         bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
+
+        // Detect if bird just became exhausted
+        if (previousVitality > 0 && bird.vitalityPercent <= 0) {
+          exhaustedBirds.push({
+            bird,
+            biomeId: biome.id,
+            type: 'forager',
+            slotIndex
+          });
+        }
       }
     });
 
@@ -101,14 +114,34 @@ export function updateForagerVitality(dt) {
     if (biome.survey.surveyorId) {
       const bird = getBirdById(biome.survey.surveyorId);
       if (bird && bird.vitalityPercent > 0) {
+        const previousVitality = bird.vitalityPercent;
+
         const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
         const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
         const percentDrained = (energyDrained / maxEnergy) * 100;
 
         bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
+
+        // Detect if bird just became exhausted
+        if (previousVitality > 0 && bird.vitalityPercent <= 0) {
+          exhaustedBirds.push({
+            bird,
+            biomeId: biome.id,
+            type: 'surveyor'
+          });
+        }
       }
     }
   });
+
+  // Notify UI about exhausted birds
+  if (exhaustedBirds.length > 0) {
+    import('../ui/wilds.js').then(module => {
+      if (module.handleExhaustedBirds) {
+        module.handleExhaustedBirds(exhaustedBirds);
+      }
+    });
+  }
 }
 
 // Assign a bird to a forager slot in a specific biome
@@ -139,6 +172,13 @@ export function assignForager(biomeId, slot, birdId) {
   forager.accumulatedSeeds = 0;
 
   console.log(`Assigned ${bird.speciesName} to ${biomeId} Forager ${slot}`);
+  
+  // Tutorial hook
+  import('../systems/tutorial.js').then(module => {
+    if (module.handleForagerAssignment) {
+      module.handleForagerAssignment(biomeId, slot);
+    }
+  });
   return true;
 }
 

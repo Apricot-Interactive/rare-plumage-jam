@@ -3,6 +3,7 @@ import { gameState, getBirdById, spendSeeds } from '../core/state.js';
 import { SURVEY_COSTS, FORAGER_BASE_RATES, UNLOCK_COSTS } from '../core/constants.js';
 import { createSpecimen } from '../data/species.js';
 import { unassignBirdFromCurrentLocation, calculateForagerSlotIncome } from './foragers.js';
+import { isTutorialActive, handleFirstSurveyComplete, TUTORIAL_STEPS, getCurrentTutorialStep } from './tutorial.js';
 
 // Calculate survey contribution rate for a specific bird (seeds/sec)
 function calculateSurveyContribution(biomeId, bird) {
@@ -149,6 +150,15 @@ export function completeSurvey(biomeId) {
 
   console.log(`Survey completed: ${biomeId}`);
 
+  // Check if this is the tutorial's first survey
+  const tutorialHandled = handleFirstSurveyFromTutorial(biomeId);
+  if (tutorialHandled) {
+    // Reset survey
+    survey.progress = 0;
+    survey.lastUpdateTime = null;
+    return;
+  }
+
   // Determine distinction based on surveyor (if assigned)
   let distinction = 1;
   if (survey.surveyorId) {
@@ -187,6 +197,15 @@ export function completeSurvey(biomeId) {
   // Reset survey
   survey.progress = 0;
   survey.lastUpdateTime = null;
+}
+
+// Handle tutorial first survey completion
+function handleFirstSurveyFromTutorial(biomeId) {
+  // Check if tutorial is active and if this should be handled specially
+  if (isTutorialActive() && biomeId === 'forest' && getCurrentTutorialStep() === TUTORIAL_STEPS.FIRST_SURVEY) {
+    return handleFirstSurveyComplete();
+  }
+  return false;
 }
 
 // Assign a bird to the survey slot of a biome

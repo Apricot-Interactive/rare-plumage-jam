@@ -275,6 +275,13 @@ export function completeBreeding(programSlot) {
   program.startTime = null;
   program.estimatedDuration = null;
   program.lastUpdateTime = null;
+
+  // Tutorial hook
+  import('../systems/tutorial.js').then(module => {
+    if (module.handleBreedingComplete) {
+      module.handleBreedingComplete();
+    }
+  });
 }
 
 export function unlockBreedingProgram(programSlot) {
