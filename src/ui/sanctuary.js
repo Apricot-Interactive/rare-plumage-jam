@@ -4,6 +4,7 @@ import { assignPerch, unassignPerch, unlockPerchSlot, instantRestore, matureBird
 import { RARITY, TRAITS, PRESTIGE_BIOME_ORDER, MATURITY_COSTS } from '../core/constants.js';
 import { updateWildsUI } from './wilds.js';
 import { formatCompact } from '../utils/numbers.js';
+import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
 import { isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from '../systems/tutorial.js';
 
 export function initSanctuaryUI() {
@@ -15,6 +16,7 @@ export function initSanctuaryUI() {
 }
 
 export function updateSanctuaryUI() {
+  console.log('[updateSanctuaryUI] Full re-render called');
   hideHeadersDuringTutorial();
   renderCrystals();
   renderPerches();
@@ -163,7 +165,7 @@ function createPerchSlot(perch) {
         <div class="perch-empty-icon">🪹</div>
       </div>
       <div class="perch-card-bottom">
-        <div class="perch-empty-label">Rest?</div>
+        <div class="perch-empty-label slot-label">Rest?</div>
       </div>
     `;
 
@@ -212,9 +214,9 @@ function createPerchSlot(perch) {
       <div class="perch-card-bottom">
         <div class="perch-card-actions">
           <button class="perch-restore-btn" ${cooldownMs > 0 ? 'disabled' : ''}>
-            ${cooldownMs > 0 ? `${cooldownSeconds}s` : `🪮`}
+            ${cooldownMs > 0 ? `${cooldownSeconds}s` : (isTutorialActive() && !gameState.hatcheryUnlocked) ? `Groom 🪮` : `🪮`}
           </button>
-          <button class="perch-mature-btn ${bird.isMature ? 'hidden' : ''}" ${!canAfford || bird.isMature ? 'disabled' : ''} title="Maturity: ${maturityPercent}%">
+          <button class="perch-mature-btn ${bird.isMature || !gameState.hatcheryUnlocked ? 'hidden' : ''}" ${!canAfford || bird.isMature ? 'disabled' : ''} title="Maturity: ${maturityPercent}%">
             ${formatCompact(costPerTap)}🫘
           </button>
         </div>
@@ -264,25 +266,30 @@ function showBirdSelector(slot) {
   const currentBird = perch?.birdId ? getBirdById(perch.birdId) : null;
 
   // Get ALL birds and categorize them (excluding the current bird in this slot)
+  // Birds on OTHER perches are considered available (not "in use")
   const allBirds = gameState.specimens
     .filter(bird => bird.id !== currentBird?.id) // Don't show current bird in the list
     .map(bird => {
-      const isAvailable = bird.location === 'collection' && bird.vitalityPercent > 0;
-      const needsRest = bird.location === 'collection' && bird.vitalityPercent <= 0;
-      const isAssigned = bird.location !== 'collection';
+      const isOnPerch = bird.location.startsWith('perch_');
+      const isInCollection = bird.location === 'collection';
+      const isAvailableLocation = isInCollection || isOnPerch;
+
+      const isAvailable = isAvailableLocation && bird.vitalityPercent > 0;
+      const needsRest = isAvailableLocation && bird.vitalityPercent <= 0;
+      const isAssigned = !isAvailableLocation;
       let locationLabel = '';
 
       if (isAssigned) {
         if (bird.location.startsWith('forager_')) {
-          const foragerSlot = parseInt(bird.location.split('_')[1]);
-          locationLabel = `Foraging (Slot ${foragerSlot + 1})`;
-        } else if (bird.location.startsWith('perch_')) {
-          const perchSlot = parseInt(bird.location.split('_')[1]);
-          locationLabel = `Perch ${perchSlot + 1}`;
-        } else if (bird.location.startsWith('assistant_')) {
+          const parts = bird.location.split('_');
+          const biomeId = parts[1];
+          const slotIndex = parts[2];
+          const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+          locationLabel = `${biomeName} Forager ${parseInt(slotIndex) + 1}`;
+        } else if (bird.location.startsWith('surveyor_')) {
           const biomeId = bird.location.split('_')[1];
           const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
-          locationLabel = `${biomeName} Assistant`;
+          locationLabel = `${biomeName} Surveyor`;
         }
       }
 
@@ -308,10 +315,37 @@ function showBirdSelector(slot) {
     `;
   }
 
-  // Add all birds (available first, then assigned, then exhausted)
+  // Add all birds (needs rest first, then available, then assigned)
   const availableBirds = allBirds.filter(b => b.isAvailable);
   const assignedBirds = allBirds.filter(b => b.isAssigned);
   const exhaustedBirds = allBirds.filter(b => b.needsRest);
+
+  if (exhaustedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Needs Rest</div>`;
+    exhaustedBirds.forEach(({ bird }) => {
+      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
+      optionsHTML += `
+        <button class="bird-select-btn" data-bird-id="${bird.id}">
+          <div class="btn-bird-icon-wrapper">
+            <svg class="bird-rings" viewBox="0 0 100 100">
+              <!-- Frame Ring (outermost, drawn first) -->
+              <circle class="frame-ring greyed" cx="50" cy="50" r="37" />
+              <!-- Vitality Ring (empty) -->
+              <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
+              <!-- Maturity Ring -->
+              <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
+            </svg>
+            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+          </div>
+          <span class="btn-content">
+            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
+            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${traitNames}</span>
+            <span class="btn-location">Out of energy</span>
+          </span>
+        </button>
+      `;
+    });
+  }
 
   if (availableBirds.length > 0) {
     optionsHTML += `<div class="section-label">Available</div>`;
@@ -376,33 +410,6 @@ function showBirdSelector(slot) {
             <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
             <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${traitNames}</span>
             <span class="btn-location">${locationLabel}</span>
-          </span>
-        </button>
-      `;
-    });
-  }
-
-  if (exhaustedBirds.length > 0) {
-    optionsHTML += `<div class="section-label">Needs Rest</div>`;
-    exhaustedBirds.forEach(({ bird }) => {
-      const traitNames = bird.traits.map(t => TRAITS[t]?.name || t).join(', ');
-      optionsHTML += `
-        <button class="bird-select-btn unavailable" data-bird-id="${bird.id}" data-location="Out of energy">
-          <div class="btn-bird-icon-wrapper">
-            <svg class="bird-rings" viewBox="0 0 100 100">
-              <!-- Frame Ring (outermost, drawn first) -->
-              <circle class="frame-ring greyed" cx="50" cy="50" r="37" />
-              <!-- Vitality Ring (empty) -->
-              <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
-              <!-- Maturity Ring -->
-              <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
-            </svg>
-            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
-          </div>
-          <span class="btn-content">
-            <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
-            <span class="btn-subtitle">${RARITY[bird.distinction].stars} - ${traitNames}</span>
-            <span class="btn-location">Out of energy</span>
           </span>
         </button>
       `;
@@ -573,7 +580,7 @@ function createCollectionItem(bird) {
 
   const maturityLabel = bird.isMature ? '✓ Mature' : '○ Immature';
   const vitalityPercent = bird.vitalityPercent;
-  const maturityPercent = bird.isMature ? 100 : 0;
+  const maturityPercent = bird.maturityProgress || 0;
   const vitalityStrokeOffset = 264 - (264 * vitalityPercent / 100);
   const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
 
@@ -606,7 +613,7 @@ function createCollectionItem(bird) {
       </div>
     </div>
     <div class="collection-actions">
-      ${!bird.isMature && isAvailable ? `<button class="mature-btn" data-bird-id="${bird.id}" ${!canAfford ? 'disabled' : ''}>${formatCompact(costPerTap)}🫘</button>` : ''}
+      ${!bird.isMature && isAvailable && gameState.hatcheryUnlocked ? `<button class="mature-btn" data-bird-id="${bird.id}" ${!canAfford ? 'disabled' : ''}>${formatCompact(costPerTap)}🫘</button>` : ''}
     </div>
   `;
 
@@ -649,7 +656,7 @@ export function updatePerchCooldowns() {
       restoreBtn.textContent = `${cooldownSeconds}s`;
     } else {
       restoreBtn.disabled = false;
-      restoreBtn.textContent = '🪮';
+      restoreBtn.textContent = (isTutorialActive() && !gameState.hatcheryUnlocked) ? 'Groom 🪮' : '🪮';
     }
   });
 }
@@ -809,4 +816,32 @@ function showWinScreen() {
   content.querySelector('#close-win-btn').addEventListener('click', () => {
     modal.classList.add('hidden');
   });
+}
+
+// Hint system integration for Sanctuary screen
+let sanctuaryHintTimeout = null;
+let sanctuaryHintShown = false;
+
+export function checkSanctuaryHints() {
+  // Don't show hints during early tutorial
+  if (isTutorialActive() && getCurrentTutorialStep() < TUTORIAL_STEPS.FREE_PLAY) return;
+
+  // Don't show hints if not on Sanctuary screen
+  const sanctuaryScreen = document.getElementById('screen-sanctuary');
+  if (!sanctuaryScreen || !sanctuaryScreen.classList.contains('active')) {
+    // Don't clear hints - let the other screen's hint system handle it
+    if (sanctuaryHintTimeout) clearTimeout(sanctuaryHintTimeout);
+    sanctuaryHintTimeout = null;
+    sanctuaryHintShown = false;
+    return;
+  }
+
+  // Start 2-second timer when screen becomes active
+  if (!sanctuaryHintShown) {
+    if (sanctuaryHintTimeout) clearTimeout(sanctuaryHintTimeout);
+    sanctuaryHintTimeout = setTimeout(() => {
+      showHint('sanctuary');
+      sanctuaryHintShown = true;
+    }, 2000);
+  }
 }

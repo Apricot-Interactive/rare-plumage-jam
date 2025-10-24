@@ -1,13 +1,13 @@
 // SANCTUARY - Survey System (Biome-based)
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { SURVEY_COSTS, FORAGER_BASE_RATES, UNLOCK_COSTS } from '../core/constants.js';
+import { SURVEY_COSTS, FORAGER_BASE_RATES, UNLOCK_COSTS, ENERGY_CAPACITY } from '../core/constants.js';
 import { createSpecimen } from '../data/species.js';
 import { unassignBirdFromCurrentLocation, calculateForagerSlotIncome } from './foragers.js';
 import { isTutorialActive, handleFirstSurveyComplete, TUTORIAL_STEPS, getCurrentTutorialStep } from './tutorial.js';
 
 // Calculate survey contribution rate for a specific bird (seeds/sec)
 function calculateSurveyContribution(biomeId, bird) {
-  if (!bird || bird.vitalityPercent <= 0) return 0;
+  if (!bird || bird.vitalityPercent <= 1) return 0;
 
   // Get the highest unlocked forager rate for this biome
   const biomeForagers = gameState.biomes.find(b => b.id === biomeId)?.foragers || [];
@@ -51,21 +51,23 @@ export function updateSurveyProgress(dt) {
     // Calculate total contribution from all assigned birds
     let totalContribution = 0;
 
-    // Add foragers' contributions
-    biome.foragers.forEach(forager => {
-      if (!forager.birdId) return;
-
-      const bird = getBirdById(forager.birdId);
-      if (bird) {
-        totalContribution += calculateSurveyContribution(biome.id, bird);
-      }
-    });
-
-    // Add surveyor's contribution
+    // ONLY add contributions if there's a surveyor assigned
+    // (surveys with no surveyor only progress via manual tapping)
     if (survey.surveyorId) {
       const surveyor = getBirdById(survey.surveyorId);
       if (surveyor) {
+        // Add surveyor's contribution
         totalContribution += calculateSurveyContribution(biome.id, surveyor);
+
+        // Also add foragers' contributions (only when surveyor is present)
+        biome.foragers.forEach(forager => {
+          if (!forager.birdId) return;
+
+          const bird = getBirdById(forager.birdId);
+          if (bird) {
+            totalContribution += calculateSurveyContribution(biome.id, bird);
+          }
+        });
       }
     }
 
@@ -73,11 +75,6 @@ export function updateSurveyProgress(dt) {
     if (totalContribution > 0) {
       const seedsAdded = totalContribution * dtSeconds;
       survey.progress = Math.min(totalCost, survey.progress + seedsAdded);
-
-      // Debug logging
-      if (Math.random() < 0.01) { // Log 1% of the time to avoid spam
-        console.log(`Survey ${biome.id}: +${seedsAdded.toFixed(2)} seeds (${survey.progress.toFixed(1)}/${totalCost}), contribution rate: ${totalContribution.toFixed(2)}/sec`);
-      }
 
       // Check for completion
       if (survey.progress >= totalCost) {
@@ -129,7 +126,37 @@ export function observeSurvey(biomeId) {
 
   survey.progress = Math.min(totalCost, survey.progress + seedsToAdd);
 
-  console.log(`Manual observation on ${biomeId}: +${seedsToAdd.toFixed(1)} seeds (FREE)`);
+  // Deduct 2 energy points from the surveyor bird (if assigned)
+  if (bird) {
+    const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+
+    // Ensure bird has vitality field (migration safety)
+    if (bird.vitality === undefined) {
+      bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+    }
+
+    const beforePercent = bird.vitalityPercent;
+    const previousVitality = bird.vitality;
+    bird.vitality = Math.max(0, bird.vitality - 2);
+    bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
+
+    console.log(`🔍 SURVEY TAP: ${bird.distinction}⭐ ${beforePercent.toFixed(1)}% → ${bird.vitalityPercent.toFixed(1)}% (${maxEnergy} max)`);
+
+    // Check if bird just became exhausted from this tap
+    if (previousVitality > 0 && bird.vitality <= 0) {
+      console.log(`🛑 SURVEYOR EXHAUSTED FROM TAP: ${bird.speciesName} in ${biomeId}`);
+      // Trigger exhausted notification
+      import('../ui/wilds.js').then(module => {
+        if (module.handleExhaustedBirds) {
+          module.handleExhaustedBirds([{
+            bird,
+            biomeId,
+            type: 'surveyor'
+          }]);
+        }
+      });
+    }
+  }
 
   // Check for completion
   if (survey.progress >= totalCost) {
@@ -159,6 +186,22 @@ export function completeSurvey(biomeId) {
     return;
   }
 
+  // Determine max distinction allowed for this biome
+  const BIOME_MAX_DISTINCTION = {
+    'forest': 2,
+    'mountain': 3,
+    'coastal': 4,
+    'arid': 5,
+    'tundra': 5
+  };
+  let maxDistinction = BIOME_MAX_DISTINCTION[biomeId] || 5;
+
+  // SPECIAL RULE: Before hatchery is unlocked, forest surveys only award 1-star birds
+  if (biomeId === 'forest' && !gameState.hatcheryUnlocked) {
+    maxDistinction = 1;
+    console.log('🌲 Forest survey limited to 1⭐ before hatchery unlock');
+  }
+
   // Determine distinction based on surveyor (if assigned)
   let distinction = 1;
   if (survey.surveyorId) {
@@ -176,6 +219,9 @@ export function completeSurvey(biomeId) {
     }
   }
 
+  // Apply biome cap
+  distinction = Math.min(distinction, maxDistinction);
+
   // Create new specimen
   const newBird = createSpecimen(biomeId, distinction);
   if (newBird) {
@@ -187,6 +233,15 @@ export function completeSurvey(biomeId) {
     }
 
     console.log(`New bird discovered: ${newBird.speciesName} (${distinction}⭐)`);
+
+    // Check for star rarity milestone (2-5 stars only)
+    if (distinction >= 2) {
+      import('./tutorial.js').then(module => {
+        if (module.checkStarRarityMilestone) {
+          module.checkStarRarityMilestone(distinction);
+        }
+      });
+    }
 
     // Show celebration overlay
     import('../ui/wilds.js').then(module => {
@@ -217,6 +272,13 @@ export function assignSurveyor(biomeId, birdId) {
 
   const bird = getBirdById(birdId);
   if (!bird) return false;
+
+  // Check if bird meets biome star requirement
+  // (biome 1 needs 1*, biome 2 needs 2*, etc.)
+  if (bird.distinction < biome.unlockRequirement) {
+    console.log(`Bird ${bird.speciesName} (${bird.distinction}⭐) doesn't meet ${biome.name} survey requirement (${biome.unlockRequirement}⭐)`);
+    return false;
+  }
 
   // Unassign bird from current location
   unassignBirdFromCurrentLocation(bird);
@@ -313,6 +375,16 @@ export function unlockBiome(biomeId) {
   if (spendSeeds(seedCost)) {
     biome.unlocked = true;
     console.log(`Unlocked ${biome.name} biome for ${seedCost} seeds!`);
+
+    // Show milestone celebration (skip forest since it starts unlocked)
+    if (biomeId !== 'forest') {
+      import('./tutorial.js').then(module => {
+        if (module.checkBiomeUnlockMilestone) {
+          module.checkBiomeUnlockMilestone(biomeId, biome.name);
+        }
+      });
+    }
+
     return true;
   }
 

@@ -11,9 +11,12 @@ export function showTutorialModal(text, style = 'normal', onNext = null) {
   // Determine text styling
   const textClass = style === 'italic' ? 'modal-text-italic' : style === 'bold' ? 'modal-text-bold' : 'modal-text';
 
+  // Convert \n to <br> for line breaks
+  const formattedText = text.replace(/\n/g, '<br>');
+
   content.innerHTML = `
     <div class="tutorial-modal">
-      <p class="${textClass}">${text}</p>
+      <p class="${textClass}">${formattedText}</p>
       <div class="modal-actions">
         <button id="tutorial-next-btn" class="primary-btn">Next</button>
       </div>

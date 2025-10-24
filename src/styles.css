@@ -5,6 +5,10 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* === iOS-STYLE SCROLLBARS === */
@@ -598,63 +602,6 @@ button.danger {
 
 .modal-overlay.hidden {
   display: none;
-}
-
-/* === ORIENTATION OVERLAY (MOBILE ONLY) === */
-.orientation-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: var(--bg-primary);
-  z-index: 9999;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-/* Show overlay only on mobile devices in landscape mode */
-@media (max-width: 768px) and (orientation: landscape) {
-  .orientation-overlay:not(.hidden) {
-    display: flex;
-  }
-}
-
-/* Never show on desktop/tablet */
-@media (min-width: 769px) {
-  .orientation-overlay {
-    display: none !important;
-  }
-}
-
-.orientation-content {
-  padding: var(--space-xl);
-}
-
-.rotate-icon {
-  font-size: 64px;
-  margin-bottom: var(--space-lg);
-  animation: rotatePhone 2s ease-in-out infinite;
-}
-
-.orientation-content p {
-  font-size: 18px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-@keyframes rotatePhone {
-  0%, 100% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-15deg);
-  }
-  75% {
-    transform: rotate(15deg);
-  }
 }
 
 .modal-content {
@@ -1616,7 +1563,7 @@ button.danger {
   overflow: hidden;
   transition: all var(--transition-fast);
   cursor: pointer;
-  height: 100%;
+  align-self: start;
 }
 
 .perch-card.locked {
@@ -1729,8 +1676,8 @@ button.danger {
 }
 
 .perch-empty-label {
-  font-size: 14px;
-  color: var(--text-secondary);
+  /* Inherits slot-label capsule styling, just needs centering */
+  margin: 0 auto;
 }
 
 .perch-bird-name {
@@ -2921,6 +2868,16 @@ button.danger {
   font-size: 18px;
 }
 
+.forager-icon-wrapper .forager-empty-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  z-index: 1;
+  opacity: 0.7;
+}
+
 /* Surveyor icon wrapper - matches perch structure */
 .surveyor-icon-wrapper {
   position: relative;
@@ -2947,6 +2904,13 @@ button.danger {
   object-fit: contain;
   position: relative;
   z-index: 1;
+}
+
+.surveyor-icon-wrapper .surveyor-empty-icon {
+  font-size: 48px;
+  position: relative;
+  z-index: 1;
+  opacity: 0.5;
 }
 
 .slot-circle.locked {
@@ -3325,18 +3289,14 @@ button.danger {
 /* Hint glow animation */
 .hint-glow {
   animation: hintPulse 2s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
 }
 
 @keyframes hintPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+  0%, 100% {
+    box-shadow: 0 0 10px 2px rgba(255, 215, 0, 0.8);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(255, 215, 0, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    box-shadow: 0 0 20px 6px rgba(255, 215, 0, 0.6);
   }
 }
 
@@ -3440,7 +3400,7 @@ button.danger {
 .bird-celebration-name {
   font-size: 20px;
   font-weight: 600;
-  color: #333;
+  color: #ffffff;
 }
 
 .bird-celebration-stars {

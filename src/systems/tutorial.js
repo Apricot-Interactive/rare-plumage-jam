@@ -62,7 +62,7 @@ function showTutorialStep(step) {
     case TUTORIAL_STEPS.INTRO:
       console.log('Showing INTRO modal');
       showTutorialModal(
-        'Only silence as far as you can hear. Did anything survive?',
+        'Only silence. Did anyone survive?',
         'italic',
         () => {
           hideTutorialModal();
@@ -115,7 +115,7 @@ function showTutorialStep(step) {
 
     case TUTORIAL_STEPS.GROOMING:
       showTutorialModal(
-        'You can rest in the sanctuary, Jay',
+        'You can rest in the sanctuary, Jay.',
         'bold',
         () => {
           hideTutorialModal();
@@ -141,7 +141,7 @@ function showTutorialStep(step) {
 
     case TUTORIAL_STEPS.SYSTEMS_REVIEW:
       showTutorialModal(
-        'Let\'s see. FORAGE for seeds. SURVEY for more birds. REST them in the sanctuary. I need 1000 seeds before I can expand my program. I can do this.',
+        'Let\'s see. FORAGE for seeds. SURVEY for more birds. REST them in the sanctuary.\n\nI need 400 seeds before I can expand my program. I can do this.',
         'italic',
         () => {
           hideTutorialModal();
@@ -163,31 +163,50 @@ function showTutorialStep(step) {
         }
       }
 
-      // Show arrow pointing to hatchery lock immediately
+      // Set Forest survey to 75% complete (300/400) when entering free play
+      const forestBiome = gameState.biomes.find(b => b.id === 'forest');
+      if (forestBiome && forestBiome.survey) {
+        forestBiome.survey.progress = 300;
+        console.log('Tutorial: Set forest survey to 75% (300/400) for free play');
+      }
+
+      // Show arrow pointing to hatchery lock immediately (tutorial step)
+      // This will be hidden when clicked, then shown again when player has 400 seeds
       setTimeout(() => {
         showTutorialArrow('.nav-button[data-screen="hatchery"]', 'down');
       }, 300);
       break;
 
     case TUTORIAL_STEPS.HATCHERY_UNLOCK:
+      console.log('🎯 TUTORIAL STEP: HATCHERY_UNLOCK - Showing modal');
       showTutorialModal(
         'Our sanctuary is growing. It\'s time to restart the breeding program.',
         'italic',
         () => {
           hideTutorialModal();
+          console.log('🎯 HATCHERY_UNLOCK modal closed, advancing to BREEDING_TUTORIAL');
           advanceTutorial(TUTORIAL_STEPS.BREEDING_TUTORIAL);
         }
       );
       break;
 
     case TUTORIAL_STEPS.BREEDING_TUTORIAL:
+      console.log('🎯 TUTORIAL STEP: BREEDING_TUTORIAL');
       // Check if already on hatchery, otherwise wait for navigation
       const hatcheryScreen = document.getElementById('screen-hatchery');
-      if (hatcheryScreen && hatcheryScreen.classList.contains('active')) {
+      const isOnHatchery = hatcheryScreen && hatcheryScreen.classList.contains('active');
+      console.log('🎯 BREEDING_TUTORIAL: Already on hatchery?', isOnHatchery);
+
+      if (isOnHatchery) {
         // Arrow points to Parent 1
+        console.log('🎯 BREEDING_TUTORIAL: On hatchery, showing arrow in 300ms');
         setTimeout(() => {
-          showTutorialArrow('.breeding-program[data-program="0"] .parent-slot:first-child .parent-action-btn', 'down');
+          const selector = '.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="1"]';
+          console.log('🎯 BREEDING_TUTORIAL: Showing arrow to Parent 1 with selector:', selector);
+          showTutorialArrow(selector, 'down');
         }, 300);
+      } else {
+        console.log('🎯 BREEDING_TUTORIAL: Not on hatchery yet, arrow will show when navigating via updateHatcheryUI');
       }
       // If not on hatchery, arrow will appear when player navigates there (via updateHatcheryUI)
       break;
@@ -374,14 +393,15 @@ export function handleSanctuaryUnlock() {
         forestBiome.foragers[0].assignedAt = null;
         forestBiome.foragers[0].accumulatedSeeds = 0;
         jay.location = 'collection';
-        // Set jay's vitality to 50% to demonstrate grooming
-        jay.vitalityPercent = 50;
+        // Set jay's vitality to 0% to demonstrate grooming impact
+        jay.vitalityPercent = 0;
+        jay.vitality = 0; // Also set absolute vitality to 0
       }
     }
 
-    // Set Forest survey to 85% complete (153/180) to give player a head start
+    // Set Forest survey to 75% complete (300/400) to give player a head start
     if (forestBiome && forestBiome.survey) {
-      forestBiome.survey.progress = 153;
+      forestBiome.survey.progress = 300;
     }
 
     saveGame();
@@ -425,10 +445,15 @@ export function handleManualRestore() {
     }
     gameState.tutorialBrushTaps++;
 
-    console.log(`Brush taps: ${gameState.tutorialBrushTaps}/5`);
+    // Find Jay (the tutorial bird on perch 0)
+    const perch0 = gameState.perches.find(p => p.slot === 0);
+    const jay = perch0?.birdId ? getBirdById(perch0.birdId) : null;
+    const jayFullyRestored = jay && jay.vitalityPercent >= 100;
 
-    // Require at least 5 taps before advancing
-    if (gameState.tutorialBrushTaps >= 5) {
+    console.log(`Brush taps: ${gameState.tutorialBrushTaps}, Jay energy: ${jay?.vitalityPercent?.toFixed(1)}%`);
+
+    // Require at least 1 tap AND Jay at 100% energy before advancing
+    if (gameState.tutorialBrushTaps >= 1 && jayFullyRestored) {
       // Hide arrow
       hideTutorialArrow();
 
@@ -443,15 +468,20 @@ export function handleManualRestore() {
   }
 }
 
+// Track if hatchery arrow has been shown (to prevent repeated calls)
+let hatcheryArrowShown = false;
+
 // Check if hatchery unlock should be shown
 export function checkHatcheryUnlock() {
-  if (!isTutorialActive()) return;
+  if (!isTutorialActive()) {
+    return;
+  }
 
-  if (gameState.tutorialStep === TUTORIAL_STEPS.FREE_PLAY && gameState.seeds >= 1000) {
-    // Show arrow pointing to hatchery lock (only if not already visible)
-    if (!isArrowVisible()) {
-      showTutorialArrow('.nav-button[data-screen="hatchery"]', 'down');
-    }
+  if (gameState.tutorialStep === TUTORIAL_STEPS.FREE_PLAY && gameState.seeds >= 400 && !gameState.hatcheryUnlocked && !hatcheryArrowShown) {
+    console.log('🎯 HATCHERY UNLOCK: Showing arrow at', Math.floor(gameState.seeds), 'seeds');
+    hatcheryArrowShown = true; // Prevent showing arrow again
+    // Show arrow pointing to hatchery lock
+    showTutorialArrow('.nav-button[data-screen="hatchery"]', 'down');
   }
 }
 
@@ -460,58 +490,144 @@ export function handleHatcheryUnlock() {
   if (!isTutorialActive()) return;
 
   if (gameState.tutorialStep === TUTORIAL_STEPS.FREE_PLAY) {
+    console.log('🎯 UNLOCKING HATCHERY - FREE (tutorial mode, no seed deduction)');
+
+    // Tutorial mode: Don't deduct seeds (player needs them for maturity)
+    // Seeds will only be deducted in normal gameplay
+
     gameState.hatcheryUnlocked = true;
     saveGame();
 
     // Hide arrow
     hideTutorialArrow();
 
+    // Navigate to hatchery screen (after unlocking, so navigation check passes)
+    import('../main.js').then(module => {
+      const hatcheryScreen = document.getElementById('screen-hatchery');
+      const hatcheryBtn = document.querySelector('.nav-button[data-screen="hatchery"]');
+
+      if (hatcheryScreen && hatcheryBtn) {
+        // Activate hatchery screen
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        hatcheryScreen.classList.add('active');
+
+        // Update nav buttons
+        document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+        hatcheryBtn.classList.add('active');
+
+        // Update hatchery UI
+        import('../ui/hatchery.js').then(uiModule => {
+          uiModule.updateHatcheryUI();
+        });
+      }
+    });
+
     // Show hatchery unlock modal
     setTimeout(() => {
+      console.log('🎯 HATCHERY: Advancing to HATCHERY_UNLOCK step, which will show modal');
       advanceTutorial(TUTORIAL_STEPS.HATCHERY_UNLOCK);
     }, 500);
   }
 }
 
 // Handle parent assignment during tutorial
-export function handleParentAssignment(program, parentNum) {
+export function handleParentAssignment(program, parentNum, birdId) {
   if (!isTutorialActive()) return;
 
-  if (gameState.tutorialStep === TUTORIAL_STEPS.BREEDING_TUTORIAL && program === 0 && parentNum === 1) {
-    // Hide arrow
-    hideTutorialArrow();
+  if (gameState.tutorialStep === TUTORIAL_STEPS.BREEDING_TUTORIAL && program === 0) {
+    console.log(`🎯 BREEDING_TUTORIAL: Parent ${parentNum} assigned`);
 
-    // Check if bird is mature
-    const breedingProgram = gameState.breedingPrograms[0];
-    const birdId = breedingProgram.lineage1Id;
-    const bird = getBirdById(birdId);
+    if (parentNum === 1) {
+      // Hide arrow when parent 1 is clicked
+      hideTutorialArrow();
 
-    if (bird && !bird.isMature) {
-      // Show maturity modal
-      setTimeout(() => {
-        showTutorialModal(
-          'You need to get a little bigger first. Here, eat these seeds.',
-          'bold',
-          () => {
-            hideTutorialModal();
-            // Show arrow pointing to maturity button
-            setTimeout(() => {
-              showTutorialArrow('.breeding-program[data-program="0"] .parent-slot:first-child .maturity-btn', 'down');
-            }, 300);
+      // Check if bird is mature
+      const bird = getBirdById(birdId);
+
+      if (bird && !bird.isMature) {
+        // Show maturity modal
+        setTimeout(() => {
+          showTutorialModal(
+            'You need to get a little bigger first. Here, eat these seeds.',
+            'bold',
+            () => {
+              hideTutorialModal();
+              // Show arrow pointing to the MATURITY BUTTON within Parent 1's box
+              setTimeout(() => {
+                console.log('🎯 BREEDING_TUTORIAL: Showing arrow to maturity button');
+                showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .mature-btn-inline', 'down');
+              }, 300);
+            }
+          );
+        }, 500);
+      } else {
+        // Bird is already mature, show arrow to Parent 2
+        setTimeout(() => {
+          console.log('🎯 BREEDING_TUTORIAL: Parent 1 is mature, showing arrow to Parent 2');
+          showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="2"]', 'down');
+        }, 500);
+      }
+    } else if (parentNum === 2) {
+      // Parent 2 assigned - check if mature
+      const bird = getBirdById(birdId);
+
+      if (bird && !bird.isMature) {
+        // Bird needs maturity - show arrow to Parent 2's maturity button
+        setTimeout(() => {
+          console.log('🎯 BREEDING_TUTORIAL: Parent 2 needs maturity, showing arrow to maturity button');
+          // There are potentially TWO maturity buttons now (one for each parent)
+          // We need to target specifically Parent 2's maturity button
+          const parent2Box = document.querySelector('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="2"]');
+          const parent2MatureBtn = parent2Box?.querySelector('.mature-btn-inline');
+
+          if (parent2MatureBtn) {
+            // Use a more specific selector or use the element directly
+            showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="2"] .mature-btn-inline', 'down');
           }
-        );
-      }, 500);
+        }, 500);
+      } else {
+        // Bird is mature - show arrow to Start Breeding button
+        setTimeout(() => {
+          console.log('🎯 BREEDING_TUTORIAL: Parent 2 is mature, showing arrow to Start Breeding button');
+          showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .start-breeding-btn', 'down');
+        }, 500);
+      }
     }
   }
 }
 
 // Handle maturity increase during tutorial
-export function handleMaturityIncrease() {
+export function handleMaturityIncrease(birdId) {
   if (!isTutorialActive()) return;
 
   if (gameState.tutorialStep === TUTORIAL_STEPS.BREEDING_TUTORIAL) {
-    // Hide arrow
-    hideTutorialArrow();
+    const bird = getBirdById(birdId);
+
+    if (bird && bird.isMature) {
+      console.log('🎯 BREEDING_TUTORIAL: Bird became mature!');
+      hideTutorialArrow();
+
+      // Check if this is Parent 1 or Parent 2 becoming mature
+      // We need to figure out which parent slot this bird is in
+      // Look at the DOM to see which parent button contains this bird
+      setTimeout(() => {
+        const parent1Box = document.querySelector('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="1"]');
+        const parent2Box = document.querySelector('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="2"]');
+
+        const parent1Name = parent1Box?.querySelector('.bird-name')?.textContent;
+        const parent2Name = parent2Box?.querySelector('.bird-name')?.textContent;
+
+        if (parent1Name === bird.speciesName && !parent2Name) {
+          // Parent 1 just became mature, no Parent 2 selected yet
+          console.log('🎯 BREEDING_TUTORIAL: Parent 1 became mature, showing arrow to Parent 2');
+          showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="2"]', 'down');
+        } else if (parent2Name === bird.speciesName) {
+          // Parent 2 just became mature, show arrow to Start Breeding
+          console.log('🎯 BREEDING_TUTORIAL: Parent 2 became mature, showing arrow to Start Breeding');
+          showTutorialArrow('.breeding-program-slot[data-program-slot="0"] .start-breeding-btn', 'down');
+        }
+      }, 500);
+    }
   }
 }
 
@@ -527,10 +643,22 @@ export function handleBreedingComplete() {
   }
 }
 
-// Generic milestone celebrations (called outside tutorial)
-export function showBiomeUnlockCelebration(biomeName) {
-  if (isTutorialActive()) return; // Don't show during tutorial
+// Milestone celebrations - show once per unique milestone
+export function checkBiomeUnlockMilestone(biomeId, biomeName) {
+  // Skip if tutorial active or already shown
+  if (isTutorialActive()) return;
+  if (!gameState.milestonesShown) {
+    gameState.milestonesShown = { biomes: [], starRarities: [] };
+  }
+  if (gameState.milestonesShown.biomes.includes(biomeId)) return;
 
+  // Mark as shown and save
+  gameState.milestonesShown.biomes.push(biomeId);
+  saveGame();
+
+  console.log(`🎉 MILESTONE: ${biomeName} biome unlocked!`);
+
+  // Show celebration modal
   showTutorialModal(
     `Congratulations on unlocking the ${biomeName} biome!`,
     'bold',
@@ -538,12 +666,27 @@ export function showBiomeUnlockCelebration(biomeName) {
   );
 }
 
-export function showStarRarityCelebration(stars) {
-  if (isTutorialActive()) return; // Don't show during tutorial
+export function checkStarRarityMilestone(stars) {
+  // Skip if tutorial active or already shown
+  if (isTutorialActive()) return;
+  if (!gameState.milestonesShown) {
+    gameState.milestonesShown = { biomes: [], starRarities: [] };
+  }
+  if (gameState.milestonesShown.starRarities.includes(stars)) return;
 
-  showTutorialModal(
-    `Congratulations on unlocking a ${stars} star bird!`,
-    'bold',
-    () => hideTutorialModal()
-  );
+  // Mark as shown and save
+  gameState.milestonesShown.starRarities.push(stars);
+  saveGame();
+
+  console.log(`🎉 MILESTONE: ${stars}-star bird acquired!`);
+
+  // Delay showing modal so celebration toast appears first
+  setTimeout(() => {
+    const starEmoji = '⭐'.repeat(stars);
+    showTutorialModal(
+      `Congratulations on discovering a ${stars}-star bird! ${starEmoji}`,
+      'bold',
+      () => hideTutorialModal()
+    );
+  }, 1500); // 1.5 second delay to let toast show first
 }

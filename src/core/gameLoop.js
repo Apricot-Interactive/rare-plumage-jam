@@ -8,13 +8,16 @@ import { updateBreedingProgress } from '../systems/breeding.js';
 import { updateForagerVitalityUI, updateSurveyProgressUI, showForagerIncomeFloatingText, checkWildsHints } from '../ui/wilds.js';
 import { updatePerchCooldowns, updatePerchVitalityBars } from '../ui/sanctuary.js';
 import { updateBreedingProgressBars } from '../ui/hatchery.js';
+import { reevaluateCurrentScreenHints } from '../systems/hints.js';
 import { isTutorialActive, checkSanctuaryUnlock, checkHatcheryUnlock } from '../systems/tutorial.js';
 
 let lastFrameTime = Date.now();
 let gameLoopId = null;
 let uiLoopId = null;
 let lastFloatingTextTime = Date.now();
+let lastHintCheckTime = Date.now();
 const FLOATING_TEXT_INTERVAL = 1000; // Show floating text every 1 second
+const HINT_CHECK_INTERVAL = 2000; // Re-evaluate hints every 2 seconds
 
 export function startGameLoop() {
   if (gameLoopId) return; // Already running
@@ -54,11 +57,17 @@ export function startUILoop() {
     updatePerchVitalityBars();
     updateBreedingProgressBars();
 
-    // Check for hints
+    // Check for hints (initial check when screen becomes active)
     checkWildsHints();
 
-    // Show floating text for forager income every second
+    // Re-evaluate hints every 2 seconds (to catch passive income changes)
     const now = Date.now();
+    if (now - lastHintCheckTime >= HINT_CHECK_INTERVAL) {
+      reevaluateCurrentScreenHints();
+      lastHintCheckTime = now;
+    }
+
+    // Show floating text for forager income every second
     if (now - lastFloatingTextTime >= FLOATING_TEXT_INTERVAL) {
       showForagerIncomeFloatingText();
       lastFloatingTextTime = now;
@@ -95,6 +104,8 @@ function updateGameSystems(deltaTime) {
 }
 
 let lastSeedsValue = 0;
+let lastNavUpdateTime = 0;
+const NAV_UPDATE_THROTTLE = 500; // Only update nav every 500ms to prevent spam
 
 function updateSeedsDisplay() {
   const seedsElement = document.getElementById('seeds-amount');
@@ -104,17 +115,28 @@ function updateSeedsDisplay() {
 
   // Update tutorial navigation display when seeds change (only if amount changed)
   if (isTutorialActive() && Math.floor(gameState.seeds) !== lastSeedsValue) {
+    const oldValue = lastSeedsValue;
     lastSeedsValue = Math.floor(gameState.seeds);
 
-    import('../main.js').then(module => {
-      if (module.updateNavigationDisplay) {
-        module.updateNavigationDisplay();
-      }
-    });
+    // Throttle navigation updates to prevent spam (only update every 500ms)
+    const now = Date.now();
+    if (now - lastNavUpdateTime >= NAV_UPDATE_THROTTLE) {
+      lastNavUpdateTime = now;
+      import('../main.js').then(module => {
+        if (module.updateNavigationDisplay) {
+          module.updateNavigationDisplay();
+        }
+      });
+    }
 
     // Check for sanctuary/hatchery unlock milestones
     checkSanctuaryUnlock();
     checkHatcheryUnlock();
+
+    // Debug: Log when crossing 400 seeds
+    if (oldValue < 400 && lastSeedsValue >= 400) {
+      console.log('💰 CROSSED 400 SEEDS THRESHOLD');
+    }
   }
 }
 

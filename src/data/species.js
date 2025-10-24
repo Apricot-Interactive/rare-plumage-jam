@@ -1,5 +1,5 @@
 // SANCTUARY - Species Name Generation
-import { TRAIT_WEIGHTS_BY_DISTINCTION, TRAITS_BY_RARITY, TRAIT_COUNT, LEGENDARIES } from '../core/constants.js';
+import { TRAIT_WEIGHTS_BY_DISTINCTION, TRAITS_BY_RARITY, TRAIT_COUNT, LEGENDARIES, ENERGY_CAPACITY } from '../core/constants.js';
 import { generateId, weightedChoice, randomChoice } from '../utils/random.js';
 
 // Bird types for species generation
@@ -73,6 +73,7 @@ export function createSpecimen(biome, distinction, providedTraits = null, isLege
   const speciesName = generateSpeciesName(biome, distinction, traits);
 
   // Create specimen object
+  const maxEnergy = ENERGY_CAPACITY[distinction] || ENERGY_CAPACITY[1];
   const specimen = {
     id: generateId('bird'),
     speciesName,
@@ -80,7 +81,8 @@ export function createSpecimen(biome, distinction, providedTraits = null, isLege
     distinction,
     biome,
     traits,
-    vitalityPercent: 100,
+    vitality: maxEnergy,  // Absolute energy value
+    vitalityPercent: 100, // Keep for backward compatibility
     isMature: false,
     cataloguedAt: Date.now(),
     location: 'collection',
@@ -99,6 +101,7 @@ export function createLegendarySpecimen(biome) {
   }
 
   // Create legendary specimen
+  const maxEnergy = ENERGY_CAPACITY[5]; // Legendaries are 5-star
   const specimen = {
     id: generateId('bird'),
     speciesName: legendaryData.speciesName,
@@ -107,7 +110,8 @@ export function createLegendarySpecimen(biome) {
     distinction: 5, // Legendaries are 5-star
     biome: legendaryData.biome,
     traits: ['luminescence', 'supremacy', 'synchrony'], // Legendaries have all epic/rare traits
-    vitalityPercent: 100,
+    vitality: maxEnergy, // Absolute energy value
+    vitalityPercent: 100, // Keep for backward compatibility
     isMature: false,
     cataloguedAt: Date.now(),
     location: 'collection',

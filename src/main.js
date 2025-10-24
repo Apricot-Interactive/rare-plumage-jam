@@ -1,11 +1,11 @@
 // SANCTUARY - Main Entry Point
 import './styles.css';
-import { GAME_CONFIG, BIOMES } from './core/constants.js';
+import { GAME_CONFIG, BIOMES, ENERGY_CAPACITY } from './core/constants.js';
 import { initializeState, saveGame, resetGameState, gameState, addSeeds } from './core/state.js';
 import { startGameLoop, startUILoop } from './core/gameLoop.js';
 import { initWildsUI, updateWildsUI, checkWildsHints } from './ui/wilds.js';
-import { initSanctuaryUI, updateSanctuaryUI } from './ui/sanctuary.js';
-import { initHatcheryUI, updateHatcheryUI } from './ui/hatchery.js';
+import { initSanctuaryUI, updateSanctuaryUI, checkSanctuaryHints } from './ui/sanctuary.js';
+import { initHatcheryUI, updateHatcheryUI, checkHatcheryHints } from './ui/hatchery.js';
 import { createSpecimen } from './data/species.js';
 import { formatOfflineTime } from './systems/offline.js';
 import { initTutorial, isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from './systems/tutorial.js';
@@ -27,7 +27,6 @@ function init() {
   initSanctuaryUI();
   initHatcheryUI();
   initSettings();
-  initOrientationLock();
 
   // Initialize tutorial if active
   if (isTutorialActive()) {
@@ -82,7 +81,7 @@ function initNavigation() {
         }
         if (targetScreen === 'hatchery' && !gameState.hatcheryUnlocked) {
           // Try to unlock hatchery
-          if (gameState.seeds >= 1000) {
+          if (gameState.seeds >= 400) {
             import('./systems/tutorial.js').then(module => {
               module.handleHatcheryUnlock();
             });
@@ -94,9 +93,11 @@ function initNavigation() {
                 'bold',
                 () => {
                   modalModule.hideTutorialModal();
-                  // Hide the arrow when modal closes
+                  // Show arrow pointing to Wilds tab after message closes
                   import('./ui/tutorialArrow.js').then(arrowModule => {
-                    arrowModule.hideTutorialArrow();
+                    setTimeout(() => {
+                      arrowModule.showTutorialArrow('.nav-button[data-screen="wilds"]', 'down');
+                    }, 300);
                   });
                 }
               );
@@ -118,64 +119,114 @@ function initNavigation() {
         }
       });
 
+      // Hide tutorial arrow when navigating (player took action)
+      if (isTutorialActive()) {
+        import('./ui/tutorialArrow.js').then(arrowModule => {
+          arrowModule.hideTutorialArrow();
+        });
+      }
+
       // Update UI for the active screen
       if (targetScreen === 'wilds') {
         updateWildsUI();
         checkWildsHints(); // Start hint timer
       } else if (targetScreen === 'sanctuary') {
         updateSanctuaryUI();
+        checkSanctuaryHints(); // Start hint timer
       } else if (targetScreen === 'hatchery') {
         updateHatcheryUI();
+        checkHatcheryHints(); // Start hint timer
       }
     });
   });
 
   // Update nav button display based on tutorial state
   updateNavigationDisplay();
+
+  // Set initial screen based on sanctuary unlock status
+  setInitialScreen();
+}
+
+function setInitialScreen() {
+  const navButtons = document.querySelectorAll('.nav-button');
+  const screens = document.querySelectorAll('.screen');
+
+  // Default to Sanctuary if unlocked, otherwise Wilds
+  const defaultScreen = gameState.sanctuaryUnlocked ? 'sanctuary' : 'wilds';
+
+  // Update nav buttons
+  navButtons.forEach(btn => {
+    if (btn.dataset.screen === defaultScreen) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Update screens
+  screens.forEach(screen => {
+    if (screen.id === `screen-${defaultScreen}`) {
+      screen.classList.add('active');
+    } else {
+      screen.classList.remove('active');
+    }
+  });
+
+  // Update UI for the active screen
+  if (defaultScreen === 'wilds') {
+    updateWildsUI();
+    checkWildsHints();
+  } else if (defaultScreen === 'sanctuary') {
+    updateSanctuaryUI();
+  }
 }
 
 // Update navigation button display during tutorial
+// Track last state to avoid spamming console logs
+let lastNavState = { sanctuary: null, hatchery: null };
+
 export function updateNavigationDisplay() {
   const sanctuaryBtn = document.querySelector('.nav-button[data-screen="sanctuary"]');
   const hatcheryBtn = document.querySelector('.nav-button[data-screen="hatchery"]');
-
-  console.log('updateNavigationDisplay called', {
-    tutorialActive: isTutorialActive(),
-    sanctuaryUnlocked: gameState?.sanctuaryUnlocked,
-    hatcheryUnlocked: gameState?.hatcheryUnlocked
-  });
 
   if (!isTutorialActive()) {
     // Normal display
     if (sanctuaryBtn) sanctuaryBtn.textContent = 'Sanctuary';
     if (hatcheryBtn) hatcheryBtn.textContent = 'Hatchery';
-    console.log('Tutorial not active, showing normal nav');
     return;
   }
 
   // Tutorial mode - show locks with simple text (no div wrapper)
+  const sanctuaryState = gameState.sanctuaryUnlocked ? 'unlocked' : 'locked';
+  const hatcheryState = gameState.hatcheryUnlocked ? 'unlocked' : 'locked';
+
+  // Only log when state changes
+  if (lastNavState.sanctuary !== sanctuaryState || lastNavState.hatchery !== hatcheryState) {
+    console.log('updateNavigationDisplay:', {
+      sanctuary: sanctuaryState,
+      hatchery: hatcheryState
+    });
+    lastNavState = { sanctuary: sanctuaryState, hatchery: hatcheryState };
+  }
+
   if (sanctuaryBtn && !gameState.sanctuaryUnlocked) {
     sanctuaryBtn.textContent = '🔒 125 🫘';
     sanctuaryBtn.style.fontSize = '12px';
     sanctuaryBtn.style.textTransform = 'none';
-    console.log('Set sanctuary lock icon');
   } else if (sanctuaryBtn) {
     sanctuaryBtn.textContent = 'Sanctuary';
     sanctuaryBtn.style.fontSize = '';
     sanctuaryBtn.style.textTransform = '';
-    console.log('Set sanctuary unlocked');
   }
 
   if (hatcheryBtn && !gameState.hatcheryUnlocked) {
-    hatcheryBtn.textContent = '🔒 1000 🫘';
+    hatcheryBtn.textContent = '🔒 400 🫘';
     hatcheryBtn.style.fontSize = '12px';
     hatcheryBtn.style.textTransform = 'none';
-    console.log('Set hatchery lock icon');
   } else if (hatcheryBtn) {
     hatcheryBtn.textContent = 'Hatchery';
     hatcheryBtn.style.fontSize = '';
     hatcheryBtn.style.textTransform = '';
-    console.log('Set hatchery unlocked');
   }
 }
 
@@ -325,15 +376,18 @@ function cheatMaxBirds() {
 
   let count = 0;
   gameState.specimens.forEach(bird => {
+    const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+    bird.vitality = maxEnergy;  // Set to full energy
     bird.vitalityPercent = 100;
     bird.isMature = true;
+    bird.maturityProgress = 100;
     bird.restoreCooldownUntil = 0;
     count++;
   });
 
   saveGame();
 
-  console.log(`CHEAT: Maxed ${count} birds (100% vitality + mature)`);
+  console.log(`CHEAT: Maxed ${count} birds (full vitality + mature)`);
 
   // Update all UIs
   updateWildsUI();
@@ -375,25 +429,6 @@ function cheatSpawnBird(distinction) {
 // ========================================
 // END CHEAT FUNCTIONS
 // ========================================
-
-function initOrientationLock() {
-  const overlay = document.getElementById('orientation-overlay');
-
-  function checkOrientation() {
-    const isMobile = window.innerWidth <= 768;
-    const isLandscape = window.innerWidth > window.innerHeight;
-
-    if (isMobile && isLandscape) {
-      overlay.classList.remove('hidden');
-    } else {
-      overlay.classList.add('hidden');
-    }
-  }
-
-  window.addEventListener('resize', checkOrientation);
-  window.addEventListener('orientationchange', checkOrientation);
-  checkOrientation();
-}
 
 // ========================================
 // OFFLINE PROGRESS MODAL

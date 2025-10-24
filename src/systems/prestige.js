@@ -140,6 +140,10 @@ export function performPrestige() {
   // 7. Don't clear catalogued species or legendaries
   // These persist through prestige for completion tracking
 
+  // 8. Tutorial state persists through prestige
+  // If player has completed tutorial once, they don't see it again
+  // (tutorialCompleted and tutorialActive remain unchanged)
+
   // Save the new state
   saveGame();
 

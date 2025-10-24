@@ -1,6 +1,6 @@
 // SANCTUARY - Sanctuary System (Perches, Grooming, Maturation, Bonuses)
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
-import { VITALITY_RESTORE_TIME_SECONDS, MANUAL_RESTORE_PERCENT_PER_TAP, UNLOCK_COSTS, TRAITS, MATURITY_COSTS } from '../core/constants.js';
+import { VITALITY_RESTORE_TIME_SECONDS, MANUAL_RESTORE_PERCENT_PER_TAP, AUTO_RECOVERY_MULTIPLIER, UNLOCK_COSTS, TRAITS, MATURITY_COSTS, ENERGY_CAPACITY } from '../core/constants.js';
 import { unassignBirdFromCurrentLocation } from './foragers.js';
 
 export function updateGrooming(dt) {
@@ -14,14 +14,25 @@ export function updateGrooming(dt) {
     const bird = getBirdById(perch.birdId);
     if (!bird) return;
 
-    // Only restore if vitality is below 100%
-    if (bird.vitalityPercent < 100) {
-      // Full recovery over 5 minutes (300 seconds)
-      // So restore rate is 100% / 300 seconds = 0.333...% per second
-      const restorePerSecond = 100 / VITALITY_RESTORE_TIME_SECONDS;
+    // Only restore if vitality is below max
+    const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+
+    // Ensure bird has vitality field (migration safety)
+    if (bird.vitality === undefined) {
+      bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+    }
+
+    if (bird.vitality < maxEnergy) {
+      // Auto-recovery rate depends on star level
+      // Base time is 300 seconds, multiplied by the star's multiplier
+      const multiplier = AUTO_RECOVERY_MULTIPLIER[bird.distinction] || AUTO_RECOVERY_MULTIPLIER[5];
+      const restorePerSecond = (maxEnergy / VITALITY_RESTORE_TIME_SECONDS) * multiplier;
       const restoreAmount = restorePerSecond * dtSeconds;
 
-      bird.vitalityPercent = Math.min(100, bird.vitalityPercent + restoreAmount);
+      bird.vitality = Math.min(maxEnergy, bird.vitality + restoreAmount);
+
+      // Update vitalityPercent for backward compatibility
+      bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
     }
   });
 }
@@ -61,6 +72,23 @@ export function assignPerch(slot, birdId) {
       module.handlePerchAssignment(slot);
     }
   });
+
+  // One-time offline tip: Show when player first rests a depleted bird AFTER free play
+  // Only trigger if bird has ≤10% energy and tutorial is at FREE_PLAY or later
+  const isFreePlayOrLater = gameState.tutorialStep >= 9 || gameState.tutorialCompleted;
+  if (!gameState.hasSeenOfflineTip && bird.vitalityPercent <= 10 && isFreePlayOrLater) {
+    gameState.hasSeenOfflineTip = true;
+
+    // Show tip modal after tutorial hook completes
+    setTimeout(() => {
+      import('../ui/modals.js').then(module => {
+        module.showTutorialModal(
+          'If I need to step away, it\'s nice to know that my birds will keep working or resting without me.',
+          'italic'
+        );
+      });
+    }, 100);
+  }
 
   return true;
 }
@@ -107,10 +135,24 @@ export function instantRestore(slot) {
   const bird = getBirdById(perch.birdId);
   if (!bird) return false;
 
-  // No cooldown - tap speeds up recovery by 1% per tap
-  bird.vitalityPercent = Math.min(100, bird.vitalityPercent + MANUAL_RESTORE_PERCENT_PER_TAP);
+  // Ensure bird has vitality field (migration safety)
+  const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+  if (bird.vitality === undefined || bird.vitality === null) {
+    bird.vitality = ((bird.vitalityPercent || 0) / 100) * maxEnergy;
+    console.log(`Migration: Bird ${bird.id} vitality set to ${bird.vitality} from ${bird.vitalityPercent}%`);
+  }
 
-  console.log(`Manual restore: +${MANUAL_RESTORE_PERCENT_PER_TAP}% vitality`);
+  console.log(`Before restore: Bird ${bird.id} has ${bird.vitality}/${maxEnergy} vitality (${bird.vitalityPercent}%)`);
+
+  // Manual restore amount depends on star level
+  const restorePercent = MANUAL_RESTORE_PERCENT_PER_TAP[bird.distinction] || MANUAL_RESTORE_PERCENT_PER_TAP[5];
+  const restoreAmount = maxEnergy * (restorePercent / 100);
+  bird.vitality = Math.min(maxEnergy, bird.vitality + restoreAmount);
+
+  // Update vitalityPercent for backward compatibility
+  bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
+
+  console.log(`Manual restore: +${restoreAmount.toFixed(1)} vitality (${restorePercent}%), now ${bird.vitality}/${maxEnergy} (${bird.vitalityPercent.toFixed(1)}%)`);
 
   // Tutorial hook
   import('../systems/tutorial.js').then(module => {

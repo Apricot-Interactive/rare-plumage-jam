@@ -109,8 +109,23 @@ export const ENERGY_DRAIN_PER_SECOND = 1;
 // Vitality restore: Full recovery over 5 minutes (300 seconds)
 export const VITALITY_RESTORE_TIME_SECONDS = 300; // 5 minutes to go from 0% to 100%
 
-// Manual restore (brush): Each tap speeds up recovery by 1%
-export const MANUAL_RESTORE_PERCENT_PER_TAP = 1; // +1% per brush tap
+// Auto-recovery multipliers by star level (higher stars recover slower)
+export const AUTO_RECOVERY_MULTIPLIER = {
+  1: 10,  // ⭐ 10x faster (30 seconds for full recovery)
+  2: 4,   // ⭐⭐ 4x faster (75 seconds for full recovery)
+  3: 2,   // ⭐⭐⭐ 2x faster (150 seconds for full recovery)
+  4: 1,   // ⭐⭐⭐⭐ 1x (300 seconds = 5 minutes for full recovery)
+  5: 1    // ⭐⭐⭐⭐⭐ 1x (300 seconds = 5 minutes for full recovery)
+};
+
+// Manual restore (brush): Percent restored per tap by star level
+export const MANUAL_RESTORE_PERCENT_PER_TAP = {
+  1: 20,  // ⭐ 20% per tap
+  2: 5,   // ⭐⭐ 5% per tap
+  3: 2,   // ⭐⭐⭐ 2% per tap
+  4: 1,   // ⭐⭐⭐⭐ 1% per tap
+  5: 1    // ⭐⭐⭐⭐⭐ 1% per tap
+};
 
 // Legacy vitality drain rates (% per minute) - kept for backward compatibility
 export const VITALITY_DRAIN_RATE = {
@@ -143,7 +158,7 @@ export const UNLOCK_COSTS = {
     tundra: 800000
   },
   perches: [0, 500, 2500, 15000, 100000],
-  breedingPrograms: [0, 2500, 25000]
+  breedingPrograms: [0, 50000, 400000]
 };
 
 // Maturation costs by star level (total seeds to reach maturity)
@@ -157,7 +172,7 @@ export const MATURITY_COSTS = {
 
 // Survey costs (total seeds required to complete survey)
 export const SURVEY_COSTS = {
-  forest: 180,
+  forest: 400,
   mountain: 7200,
   coastal: 67500,
   arid: 864000,
@@ -331,7 +346,7 @@ export const GAME_CONFIG = {
   GAME_LOOP_FPS: 60,               // Game logic updates
   UI_LOOP_FPS: 10,                 // UI display updates
   STARTING_SEEDS: 100,
-  STARTING_SURVEY_PROGRESS: 80,    // Forest starts at 80% for tutorial
+  STARTING_SURVEY_PROGRESS: 390,    // Forest starts at 97.5% for tutorial (390/400)
   VERSION: 2  // Incremented for biome refactor
 };
 

@@ -43,6 +43,11 @@ export function calculateOffspring(parent1, parent2) {
     distinction = Math.max(1, avgDistinction - 1); // 10% -1⭐
   }
 
+  // Minimum floor: always at least 1 star higher than lowest parent
+  const lowestParent = Math.min(parent1.distinction, parent2.distinction);
+  const minimumDistinction = Math.min(5, lowestParent + 1);
+  distinction = Math.max(distinction, minimumDistinction);
+
   // === BIOME INHERITANCE ===
   // 50/50 from either parent
   const biome = Math.random() < 0.5 ? parent1.biome : parent2.biome;
@@ -144,12 +149,15 @@ export function updateBreedingProgress(dt) {
     // Auto-contribution from time passage
     const progressIncrease = (timeSinceLastUpdate / program.estimatedDuration) * 100;
     program.progress += progressIncrease;
+
+    // Cap auto-progress at 99% - player must manually tap for the last 1%
+    if (program.progress > 99) {
+      program.progress = 99;
+    }
+
     program.lastUpdateTime = now;
 
-    // Check for completion
-    if (program.progress >= 100) {
-      completeBreeding(program.program);
-    }
+    // Auto-completion removed - breeding now requires manual tap at 99%
   });
 }
 
@@ -255,6 +263,22 @@ export function completeBreeding(programSlot) {
     }
 
     console.log(`Breeding complete! New bird: ${newBird.speciesName} (${newBird.distinction}⭐)`);
+
+    // Check for star rarity milestone (2-5 stars only)
+    // Skip if this is the tutorial's first breeding
+    if (newBird.distinction >= 2) {
+      import('./tutorial.js').then(module => {
+        // Only show milestone if not in breeding tutorial step
+        const inBreedingTutorial = module.isTutorialActive &&
+                                   module.isTutorialActive() &&
+                                   module.getCurrentTutorialStep &&
+                                   module.getCurrentTutorialStep() === module.TUTORIAL_STEPS.BREEDING_TUTORIAL;
+
+        if (!inBreedingTutorial && module.checkStarRarityMilestone) {
+          module.checkStarRarityMilestone(newBird.distinction);
+        }
+      });
+    }
 
     // Show celebration overlay
     // Import and call from UI module to avoid circular dependency

@@ -3,8 +3,9 @@ import { gameState, getBirdById, addSeeds } from '../core/state.js';
 import { assignForager, unassignForager, unlockForagerSlot, calculateForagerSlotIncome } from '../systems/foragers.js';
 import { observeSurvey, assignSurveyor, unassignSurveyor, getBiomeTapRate, unlockBiome } from '../systems/surveys.js';
 import { canPrestige, performPrestige, getPrestigeWarningMessage, PRESTIGE_COST } from '../systems/prestige.js';
-import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE, UNLOCK_COSTS, SURVEY_COSTS, FORAGER_BASE_RATES } from '../core/constants.js';
+import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE, UNLOCK_COSTS, SURVEY_COSTS, FORAGER_BASE_RATES, ENERGY_CAPACITY } from '../core/constants.js';
 import { updateSanctuaryUI } from './sanctuary.js';
+import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
 import {
   isTutorialActive,
   getCurrentTutorialStep,
@@ -39,14 +40,27 @@ export function showSurveyCelebration(newBird, biomeId) {
   biomeCard.style.position = 'relative';
   biomeCard.appendChild(overlay);
 
-  // Fade out and remove after 4 seconds
-  setTimeout(() => {
+  let fadeTimeout;
+  let isFading = false;
+
+  // Function to fade out the overlay
+  const fadeOut = () => {
+    if (isFading) return; // Already fading
+    isFading = true;
+    clearTimeout(fadeTimeout); // Clear auto-fade timer
+    overlay.style.transition = 'opacity 1s';
     overlay.style.opacity = '0';
     setTimeout(() => {
       overlay.remove();
       updateWildsUI();
-    }, 500);
-  }, 4000);
+    }, 1000);
+  };
+
+  // Click to dismiss
+  overlay.addEventListener('click', fadeOut);
+
+  // Auto-fade after 4 seconds
+  fadeTimeout = setTimeout(fadeOut, 4000);
 }
 
 export function initWildsUI() {
@@ -55,7 +69,7 @@ export function initWildsUI() {
 
 // Full re-render (only call when assignments change)
 export function updateWildsUI() {
-  clearHints(); // Clear hints when UI updates (player took action)
+  clearAllHints(); // Clear hints when UI updates (player took action)
   renderBiomes();
   // Restart hint timer
   lastScreenCheck = null;
@@ -195,9 +209,8 @@ function createBiomeCard(biome, index) {
         <div class="biome-locked-right">
           <h3>${biome.name}</h3>
           <div class="unlock-requirement">${RARITY[biome.unlockRequirement].stars} Bird Required</div>
-          <div class="unlock-requirement">${seedCost.toLocaleString()} 🫘 Required</div>
+          <div class="unlock-requirement">${seedCost.toLocaleString()} 🫘</div>
           ${hasRequiredBird && canAfford ? `<button class="unlock-biome-btn">Unlock Biome</button>` : ''}
-          ${hasRequiredBird && !canAfford ? `<div class="unlock-requirement">Need ${(seedCost - gameState.seeds).toLocaleString()} more seeds</div>` : ''}
         </div>
       </div>
     `;
@@ -354,7 +367,7 @@ function createForagerSlotHTML(biome, slotIndex) {
           <svg class="bird-rings" viewBox="0 0 100 100">
             <circle class="frame-ring empty-frame" cx="50" cy="50" r="37" />
           </svg>
-          <img src="/assets/ui/slot-empty.png" alt="Empty" class="forager-bird-icon" />
+          <div class="forager-empty-icon">🫘</div>
         </div>
         <div class="slot-label">Forage?</div>
       </div>
@@ -417,7 +430,7 @@ function createSurveySlotHTML(biome) {
         <svg class="bird-rings" viewBox="0 0 100 100">
           <circle class="frame-ring empty-frame" cx="50" cy="50" r="46" />
         </svg>
-        <img src="/assets/biomes/${biome.id}.png" alt="${biome.name}" class="surveyor-bird-icon" />
+        <div class="surveyor-empty-icon">🔭</div>
       </div>
     `;
   }
@@ -452,6 +465,10 @@ function attachBiomeEventListeners(card, biome) {
       slotEl.addEventListener('click', () => {
         if (unlockForagerSlot(biome.id, slotIndex)) {
           renderBiomes();
+          // Re-evaluate hints after unlocking (may need to assign bird to new slot)
+          setTimeout(() => {
+            reevaluateCurrentScreenHints();
+          }, 100);
         }
       });
     } else {
@@ -492,6 +509,23 @@ function attachBiomeEventListeners(card, biome) {
           if (forager.birdId) {
             // If bird assigned, calculate based on bird stats
             seeds = calculateForagerSlotIncome(biome.id, slotIndex, forager.birdId) * 5;
+
+            // Deduct 2 energy points from the bird
+            const bird = getBirdById(forager.birdId);
+            if (bird) {
+              const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+
+              // Ensure bird has vitality field (migration safety)
+              if (bird.vitality === undefined) {
+                bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+              }
+
+              const beforePercent = bird.vitalityPercent;
+              bird.vitality = Math.max(0, bird.vitality - 2);
+              bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
+
+              console.log(`⚡ FORAGER TAP: ${bird.distinction}⭐ ${beforePercent.toFixed(1)}% → ${bird.vitalityPercent.toFixed(1)}% (${maxEnergy} max)`);
+            }
           } else {
             // If no bird, give base rate * 5 seconds
             const baseRate = FORAGER_BASE_RATES[biome.id]?.[slotIndex] || 0;
@@ -508,6 +542,9 @@ function attachBiomeEventListeners(card, biome) {
                 module.handleManualTap();
               }
             });
+
+            // Re-evaluate hints after getting seeds (may unlock new options)
+            reevaluateCurrentScreenHints();
           }
         });
       }
@@ -532,6 +569,8 @@ function attachBiomeEventListeners(card, biome) {
       if (result.success) {
         updateSurveyProgressUI();
         // Survey taps are now free - no floating text needed
+        // Re-evaluate hints after survey (may get new birds)
+        reevaluateCurrentScreenHints();
       }
     });
   }
@@ -553,6 +592,8 @@ function attachBiomeEventListeners(card, biome) {
       if (result.success) {
         updateSurveyProgressUI();
         // Survey taps are now free - no floating text needed
+        // Re-evaluate hints after survey (may get new birds)
+        reevaluateCurrentScreenHints();
       }
     });
   }
@@ -620,15 +661,22 @@ function showBirdSelector(biomeId, slotIndex) {
   const currentBird = forager?.birdId ? getBirdById(forager.birdId) : null;
 
   // Get ALL birds and categorize them
+  // Birds on perches are considered available (not "in use")
   const allBirds = gameState.specimens
     .filter(bird => bird.id !== currentBird?.id)
-    .map(bird => ({
-      bird,
-      isAvailable: bird.location === 'collection' && bird.vitalityPercent > 0,
-      needsRest: bird.location === 'collection' && bird.vitalityPercent <= 0,
-      isAssigned: bird.location !== 'collection',
-      locationLabel: getBirdLocationLabel(bird)
-    }));
+    .map(bird => {
+      const isOnPerch = bird.location.startsWith('perch_');
+      const isInCollection = bird.location === 'collection';
+      const isAvailableLocation = isInCollection || isOnPerch;
+
+      return {
+        bird,
+        isAvailable: isAvailableLocation && bird.vitalityPercent > 0,
+        needsRest: isAvailableLocation && bird.vitalityPercent <= 0,
+        isAssigned: !isAvailableLocation,
+        locationLabel: getBirdLocationLabel(bird)
+      };
+    });
 
   const modal = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
@@ -647,9 +695,13 @@ function showBirdSelector(biomeId, slotIndex) {
     `;
   }
 
-  const availableBirds = allBirds.filter(b => b.isAvailable);
-  const assignedBirds = allBirds.filter(b => b.isAssigned);
-  const exhaustedBirds = allBirds.filter(b => b.needsRest);
+  // Sort each category by distinction (highest stars first)
+  const availableBirds = allBirds.filter(b => b.isAvailable)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
+  const assignedBirds = allBirds.filter(b => b.isAssigned)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
+  const exhaustedBirds = allBirds.filter(b => b.needsRest)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
 
   if (availableBirds.length > 0) {
     optionsHTML += `<div class="section-label">Available</div>`;
@@ -668,7 +720,7 @@ function showBirdSelector(biomeId, slotIndex) {
   if (exhaustedBirds.length > 0) {
     optionsHTML += `<div class="section-label">Needs Rest</div>`;
     exhaustedBirds.forEach(({ bird }) => {
-      optionsHTML += createBirdSelectButton(bird, true, 'Out of energy');
+      optionsHTML += createBirdSelectButton(bird, false, null, false, true);
     });
   }
 
@@ -719,6 +771,21 @@ function showBirdSelector(biomeId, slotIndex) {
     btn.addEventListener('click', () => {
       const birdId = btn.dataset.birdId;
       const location = btn.dataset.location;
+      const isExhausted = btn.dataset.exhausted === 'true';
+
+      if (isExhausted) {
+        // Show popup instructing to rest in sanctuary
+        import('./modals.js').then(modalModule => {
+          modalModule.showTutorialModal(
+            'This bird is out of energy and needs to rest in the Sanctuary before it can be assigned!',
+            'bold',
+            () => {
+              modalModule.hideTutorialModal();
+            }
+          );
+        });
+        return;
+      }
 
       if (location) {
         showReassignmentConfirmation(
@@ -751,13 +818,22 @@ function showSurveyorSelector(biomeId) {
 
   const currentSurveyor = biome.survey.surveyorId ? getBirdById(biome.survey.surveyorId) : null;
 
+  // Birds on perches are considered available (not "in use")
   const allBirds = gameState.specimens
     .filter(bird => bird.id !== currentSurveyor?.id)
-    .map(bird => ({
-      bird,
-      isAvailable: bird.location === 'collection',
-      locationLabel: getBirdLocationLabel(bird)
-    }));
+    .map(bird => {
+      const isOnPerch = bird.location.startsWith('perch_');
+      const isInCollection = bird.location === 'collection';
+      const isAvailableLocation = isInCollection || isOnPerch;
+
+      return {
+        bird,
+        isAvailable: isAvailableLocation && bird.vitalityPercent > 0,
+        needsRest: isAvailableLocation && bird.vitalityPercent <= 0,
+        isAssigned: !isAvailableLocation,
+        locationLabel: getBirdLocationLabel(bird)
+      };
+    });
 
   const modal = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
@@ -776,8 +852,13 @@ function showSurveyorSelector(biomeId) {
     `;
   }
 
-  const availableBirds = allBirds.filter(b => b.isAvailable);
-  const unavailableBirds = allBirds.filter(b => !b.isAvailable);
+  // Sort each category by distinction (highest stars first)
+  const availableBirds = allBirds.filter(b => b.isAvailable)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
+  const assignedBirds = allBirds.filter(b => b.isAssigned)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
+  const exhaustedBirds = allBirds.filter(b => b.needsRest)
+    .sort((a, b) => b.bird.distinction - a.bird.distinction);
 
   if (availableBirds.length > 0) {
     optionsHTML += `<div class="section-label">Available Birds</div>`;
@@ -786,10 +867,17 @@ function showSurveyorSelector(biomeId) {
     });
   }
 
-  if (unavailableBirds.length > 0) {
+  if (assignedBirds.length > 0) {
     optionsHTML += `<div class="section-label">In Use</div>`;
-    unavailableBirds.forEach(({ bird, locationLabel }) => {
+    assignedBirds.forEach(({ bird, locationLabel }) => {
       optionsHTML += createBirdSelectButton(bird, true, locationLabel, true);
+    });
+  }
+
+  if (exhaustedBirds.length > 0) {
+    optionsHTML += `<div class="section-label">Needs Rest</div>`;
+    exhaustedBirds.forEach(({ bird }) => {
+      optionsHTML += createBirdSelectButton(bird, false, null, true, true);
     });
   }
 
@@ -823,6 +911,21 @@ function showSurveyorSelector(biomeId) {
     btn.addEventListener('click', () => {
       const birdId = btn.dataset.birdId;
       const location = btn.dataset.location;
+      const isExhausted = btn.dataset.exhausted === 'true';
+
+      if (isExhausted) {
+        // Show popup instructing to rest in sanctuary
+        import('./modals.js').then(modalModule => {
+          modalModule.showTutorialModal(
+            'This bird is out of energy and needs to rest in the Sanctuary before it can be assigned!',
+            'bold',
+            () => {
+              modalModule.hideTutorialModal();
+            }
+          );
+        });
+        return;
+      }
 
       if (location) {
         showReassignmentConfirmation(
@@ -847,14 +950,15 @@ function showSurveyorSelector(biomeId) {
   });
 }
 
-function createBirdSelectButton(bird, isUnavailable, locationLabel = '', isSurveyor = false) {
+function createBirdSelectButton(bird, isUnavailable, locationLabel = '', isSurveyor = false, isExhausted = false) {
   const vitalityPercent = bird.vitalityPercent;
   const maturityPercent = bird.isMature ? 100 : 0;
   const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
   const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
 
-  const greyedClass = isUnavailable ? 'greyed' : '';
+  const greyedClass = (isUnavailable || isExhausted) ? 'greyed' : '';
   const unavailableClass = isUnavailable ? 'unavailable' : '';
+  const exhaustedClass = isExhausted ? 'exhausted' : '';
 
   const income = FORAGER_INCOME[bird.distinction] || 0;
   const tapRate = ASSISTANT_TAP_RATE[bird.distinction] || 0;
@@ -862,8 +966,10 @@ function createBirdSelectButton(bird, isUnavailable, locationLabel = '', isSurve
     ? `${RARITY[bird.distinction].stars} - ${tapRate.toFixed(2)} taps/sec`
     : `${RARITY[bird.distinction].stars} - ${income} Seeds/sec`;
 
+  const locationText = isExhausted ? 'Out of energy' : locationLabel;
+
   return `
-    <button class="bird-select-btn ${unavailableClass}" data-bird-id="${bird.id}" ${isUnavailable ? `data-location="${locationLabel}"` : ''}>
+    <button class="bird-select-btn ${unavailableClass} ${exhaustedClass}" data-bird-id="${bird.id}" ${isUnavailable ? `data-location="${locationLabel}"` : ''} ${isExhausted ? 'data-exhausted="true"' : ''}>
       <div class="btn-bird-icon-wrapper">
         <svg class="bird-rings" viewBox="0 0 100 100">
           <circle class="frame-ring ${greyedClass}" cx="50" cy="50" r="37" />
@@ -877,7 +983,7 @@ function createBirdSelectButton(bird, isUnavailable, locationLabel = '', isSurve
       <span class="btn-content">
         <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
         <span class="btn-subtitle">${subtitle}</span>
-        ${isUnavailable ? `<span class="btn-location">${locationLabel}</span>` : ''}
+        ${(isUnavailable || isExhausted) ? `<span class="btn-location">${locationText}</span>` : ''}
       </span>
     </button>
   `;
@@ -947,13 +1053,6 @@ let hintTimeout = null;
 let lastScreenCheck = null;
 let hintShown = false;
 
-// Clear all hint glows
-function clearHints() {
-  document.querySelectorAll('.hint-glow').forEach(el => {
-    el.classList.remove('hint-glow');
-  });
-}
-
 // Check if player needs a hint (called when Wilds screen is active)
 export function checkWildsHints() {
   // Don't show hints during early tutorial steps (before FREE_PLAY)
@@ -963,7 +1062,7 @@ export function checkWildsHints() {
   // Don't show hints if we're not on Wilds screen
   const wildsScreen = document.getElementById('screen-wilds');
   if (!wildsScreen || !wildsScreen.classList.contains('active')) {
-    clearHints();
+    // Don't clear hints - let the other screen's hint system handle it
     if (hintTimeout) clearTimeout(hintTimeout);
     hintTimeout = null;
     lastScreenCheck = null;
@@ -971,153 +1070,15 @@ export function checkWildsHints() {
     return;
   }
 
-  // Start 5-second timer when screen becomes active (only once)
+  // Start 2-second timer when screen becomes active (only once)
   if (lastScreenCheck === null && !hintShown) {
     lastScreenCheck = Date.now();
     if (hintTimeout) clearTimeout(hintTimeout);
     hintTimeout = setTimeout(() => {
-      showNextHint();
+      showHint('wilds');
       hintShown = true;
-    }, 5000);
+    }, 2000);
   }
-}
-
-// Determine and show the next appropriate hint
-function showNextHint() {
-  if (!gameState) return;
-
-  console.log('showNextHint called');
-  clearHints();
-
-  // Get unassigned birds
-  const unassignedBirds = gameState.specimens.filter(bird => bird.location === 'collection');
-  console.log('Unassigned birds:', unassignedBirds.length);
-
-  // (A) Empty slots with available birds - prioritize surveyor, then foragers
-  if (unassignedBirds.length > 0) {
-    // Check all unlocked biomes for empty slots
-    for (const biome of gameState.biomes) {
-      if (!biome.unlocked) continue;
-
-      // Check surveyor first
-      if (!biome.survey.surveyorId) {
-        const surveyLabel = document.querySelector(`.biome-card[data-biome-id="${biome.id}"] .surveyor-label`);
-        if (surveyLabel) {
-          console.log('Hint (A): Pulsing surveyor label for', biome.id);
-          surveyLabel.classList.add('hint-glow');
-          return;
-        }
-      }
-
-      // Check foragers
-      for (let i = 0; i < biome.foragers.length; i++) {
-        const forager = biome.foragers[i];
-        if (forager.unlocked && !forager.birdId) {
-          const foragerLabel = document.querySelector(`.bird-slot[data-biome-id="${biome.id}"][data-slot-type="forager"][data-slot-index="${i}"] .slot-label`);
-          if (foragerLabel) {
-            console.log('Hint (A): Pulsing forager label for', biome.id, 'slot', i);
-            foragerLabel.classList.add('hint-glow');
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  // (B) No unassigned birds - pulse survey to get more birds
-  if (unassignedBirds.length === 0) {
-    // Find first unlocked biome with incomplete survey
-    for (const biome of gameState.biomes) {
-      if (!biome.unlocked) continue;
-
-      const totalCost = SURVEY_COSTS[biome.id] || 360;
-      if (biome.survey.progress < totalCost) {
-        const surveySlot = document.querySelector(`.biome-card[data-biome-id="${biome.id}"] .surveyor-slot`);
-        if (surveySlot) {
-          console.log('Hint (B): Pulsing survey slot for', biome.id);
-          surveySlot.classList.add('hint-glow');
-          return;
-        }
-      }
-    }
-  }
-
-  // (D) Can afford an upgrade - pulse that upgrade button (check before C)
-  const nextAffordableUpgrade = findNextAffordableUpgrade();
-  if (nextAffordableUpgrade) {
-    const button = document.querySelector(nextAffordableUpgrade.selector);
-    if (button) {
-      console.log('Hint (D): Pulsing upgrade button', nextAffordableUpgrade.type);
-      button.classList.add('hint-glow');
-      return;
-    }
-  }
-
-  // (C) All slots full but can't afford upgrades - pulse highest forager to tap
-  // Find highest-earning forager slot
-  let highestForager = null;
-  let highestIncome = 0;
-
-  for (const biome of gameState.biomes) {
-    if (!biome.unlocked) continue;
-
-    for (let i = 0; i < biome.foragers.length; i++) {
-      const forager = biome.foragers[i];
-      if (forager.unlocked && forager.birdId) {
-        const income = calculateForagerSlotIncome(biome.id, i, forager.birdId);
-        if (income > highestIncome) {
-          highestIncome = income;
-          highestForager = { biomeId: biome.id, slotIndex: i };
-        }
-      }
-    }
-  }
-
-  if (highestForager) {
-    const iconWrapper = document.querySelector(`.bird-slot[data-biome-id="${highestForager.biomeId}"][data-slot-type="forager"][data-slot-index="${highestForager.slotIndex}"] .forager-icon-wrapper`);
-    if (iconWrapper) {
-      console.log('Hint (C): Pulsing highest forager for', highestForager.biomeId, 'slot', highestForager.slotIndex);
-      iconWrapper.classList.add('hint-glow');
-      return;
-    }
-  }
-
-  console.log('No hint applied');
-}
-
-// Find the next affordable upgrade
-function findNextAffordableUpgrade() {
-  if (!gameState) return null;
-
-  // Check forager slot unlocks
-  for (const biome of gameState.biomes) {
-    if (!biome.unlocked) continue;
-
-    for (let i = 0; i < biome.foragers.length; i++) {
-      const forager = biome.foragers[i];
-      if (!forager.unlocked && gameState.seeds >= forager.unlockCost) {
-        return {
-          type: 'forager',
-          selector: `.bird-slot.locked[data-biome-id="${biome.id}"][data-slot-type="forager"][data-slot-index="${i}"]`
-        };
-      }
-    }
-  }
-
-  // Check biome unlocks
-  for (const biome of gameState.biomes) {
-    if (!biome.unlocked) {
-      const unlockCost = UNLOCK_COSTS.biomes[biome.id];
-      if (unlockCost && gameState.seeds >= unlockCost) {
-        return {
-          type: 'biome',
-          selector: `.biome-card[data-biome-id="${biome.id}"] .biome-unlock-btn`
-        };
-      }
-    }
-  }
-
-  return null;
 }
 
 // ========================================
@@ -1126,11 +1087,17 @@ function findNextAffordableUpgrade() {
 
 // Handle birds that just ran out of energy
 export function handleExhaustedBirds(exhaustedBirds) {
+  console.log(`📢 handleExhaustedBirds called with ${exhaustedBirds.length} birds`);
+
   // Only show notifications if on Wilds screen
   const wildsScreen = document.getElementById('screen-wilds');
-  if (!wildsScreen || !wildsScreen.classList.contains('active')) return;
+  if (!wildsScreen || !wildsScreen.classList.contains('active')) {
+    console.log('Not on Wilds screen, skipping exhausted notification');
+    return;
+  }
 
   exhaustedBirds.forEach(({ bird, biomeId, type, slotIndex }) => {
+    console.log(`Unassigning exhausted ${type}: ${bird.speciesName} from ${biomeId}`);
     // Unassign the bird
     if (type === 'forager') {
       unassignForager(biomeId, slotIndex);
@@ -1140,12 +1107,14 @@ export function handleExhaustedBirds(exhaustedBirds) {
   });
 
   // Update UI to show unassigned birds FIRST
+  console.log('Updating Wilds UI after exhaustion');
   updateWildsUI();
 
   // Then show notifications AFTER UI is rendered
   setTimeout(() => {
     exhaustedBirds.forEach(({ bird, biomeId, type }) => {
       const activityText = type === 'forager' ? 'Foraging' : 'Surveying';
+      console.log(`Showing exhausted notification for ${bird.speciesName}`);
       showExhaustedNotification(bird, activityText, biomeId);
     });
   }, 100);
@@ -1177,11 +1146,24 @@ function showExhaustedNotification(bird, activityText, biomeId) {
     notification.style.opacity = '1';
   }, 50);
 
-  // Fade out and remove after 4 seconds
-  setTimeout(() => {
+  let fadeTimeout;
+  let isFading = false;
+
+  // Function to fade out the notification
+  const fadeOut = () => {
+    if (isFading) return; // Already fading
+    isFading = true;
+    clearTimeout(fadeTimeout); // Clear auto-fade timer
+    notification.style.transition = 'opacity 1s';
     notification.style.opacity = '0';
     setTimeout(() => {
       notification.remove();
-    }, 500);
-  }, 4000);
+    }, 1000);
+  };
+
+  // Click to dismiss
+  notification.addEventListener('click', fadeOut);
+
+  // Auto-fade after 4 seconds
+  fadeTimeout = setTimeout(fadeOut, 4000);
 }

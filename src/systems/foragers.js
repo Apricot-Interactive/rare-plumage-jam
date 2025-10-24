@@ -29,7 +29,7 @@ export function calculateForagerSlotIncome(biomeId, slotIndex, birdId) {
   if (!birdId) return 0;
 
   const bird = getBirdById(birdId);
-  if (!bird || bird.vitalityPercent <= 0) return 0;
+  if (!bird || bird.vitalityPercent <= 1) return 0;
 
   // Get base rate for this biome and slot
   const baseRate = FORAGER_BASE_RATES[biomeId]?.[slotIndex] || 0;
@@ -88,18 +88,25 @@ export function updateForagerVitality(dt) {
       const bird = getBirdById(forager.birdId);
       if (!bird) return;
 
-      if (bird.vitalityPercent > 0) {
-        const previousVitality = bird.vitalityPercent;
+      // Ensure bird has vitality field (migration safety)
+      const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+      if (bird.vitality === undefined) {
+        bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+      }
 
-        // Drain 1 energy per second
-        const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+      if (bird.vitality > 0) {
+        const previousVitality = bird.vitality;
+
+        // Drain 1 energy per second (absolute value)
         const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
-        const percentDrained = (energyDrained / maxEnergy) * 100;
+        bird.vitality = Math.max(0, bird.vitality - energyDrained);
 
-        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
+        // Update vitalityPercent for backward compatibility
+        const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+        bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
 
         // Detect if bird just became exhausted
-        if (previousVitality > 0 && bird.vitalityPercent <= 0) {
+        if (previousVitality > 0 && bird.vitality <= 0) {
           exhaustedBirds.push({
             bird,
             biomeId: biome.id,
@@ -113,22 +120,32 @@ export function updateForagerVitality(dt) {
     // Drain vitality for surveyor
     if (biome.survey.surveyorId) {
       const bird = getBirdById(biome.survey.surveyorId);
-      if (bird && bird.vitalityPercent > 0) {
-        const previousVitality = bird.vitalityPercent;
-
+      if (bird) {
+        // Ensure bird has vitality field (migration safety)
         const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
-        const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
-        const percentDrained = (energyDrained / maxEnergy) * 100;
+        if (bird.vitality === undefined) {
+          bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+        }
 
-        bird.vitalityPercent = Math.max(0, bird.vitalityPercent - percentDrained);
+        if (bird.vitality > 0) {
+          const previousVitality = bird.vitality;
 
-        // Detect if bird just became exhausted
-        if (previousVitality > 0 && bird.vitalityPercent <= 0) {
-          exhaustedBirds.push({
-            bird,
-            biomeId: biome.id,
-            type: 'surveyor'
-          });
+          // Drain 1 energy per second (absolute value)
+          const energyDrained = ENERGY_DRAIN_PER_SECOND * dtSeconds;
+          bird.vitality = Math.max(0, bird.vitality - energyDrained);
+
+          // Update vitalityPercent for backward compatibility
+          bird.vitalityPercent = (bird.vitality / maxEnergy) * 100;
+
+          // Detect if bird just became exhausted
+          if (previousVitality > 0 && bird.vitality <= 0) {
+            console.log(`🛑 SURVEYOR EXHAUSTED: ${bird.speciesName} in ${biome.id} (${previousVitality.toFixed(2)} → ${bird.vitality})`);
+            exhaustedBirds.push({
+              bird,
+              biomeId: biome.id,
+              type: 'surveyor'
+            });
+          }
         }
       }
     }
@@ -136,9 +153,12 @@ export function updateForagerVitality(dt) {
 
   // Notify UI about exhausted birds
   if (exhaustedBirds.length > 0) {
+    console.log(`🔔 Calling handleExhaustedBirds with ${exhaustedBirds.length} birds:`, exhaustedBirds.map(e => `${e.type} in ${e.biomeId}`));
     import('../ui/wilds.js').then(module => {
       if (module.handleExhaustedBirds) {
         module.handleExhaustedBirds(exhaustedBirds);
+      } else {
+        console.error('handleExhaustedBirds not found in wilds.js module');
       }
     });
   }
@@ -156,6 +176,13 @@ export function assignForager(biomeId, slot, birdId) {
 
   const bird = getBirdById(birdId);
   if (!bird) return false;
+
+  // Check if bird meets biome star requirement
+  // (biome 1 needs 1*, biome 2 needs 2*, etc.)
+  if (bird.distinction < biome.unlockRequirement) {
+    console.log(`Bird ${bird.speciesName} (${bird.distinction}⭐) doesn't meet ${biome.name} requirement (${biome.unlockRequirement}⭐)`);
+    return false;
+  }
 
   // Unassign bird from current location
   unassignBirdFromCurrentLocation(bird);

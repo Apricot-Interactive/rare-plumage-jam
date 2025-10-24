@@ -1,5 +1,5 @@
 // SANCTUARY - Game State Management
-import { GAME_CONFIG, UNLOCK_COSTS, BIOMES, SURVEY_COSTS } from './constants.js';
+import { GAME_CONFIG, UNLOCK_COSTS, BIOMES, SURVEY_COSTS, ENERGY_CAPACITY } from './constants.js';
 import { STORAGE_KEYS } from './constants.js';
 import { generateId } from '../utils/random.js';
 import { calculateOfflineProgress } from '../systems/offline.js';
@@ -33,7 +33,7 @@ function createDefaultState() {
 
       // Survey slot
       survey: {
-        progress: index === 0 ? 170 : 0, // Tutorial: Forest starts 4 clicks short (170/180, each click = 2.5)
+        progress: index === 0 ? GAME_CONFIG.STARTING_SURVEY_PROGRESS : 0, // Tutorial: Forest starts at 97.5% (390/400)
         surveyorId: null, // Bird assigned to survey
         lastUpdateTime: null
       }
@@ -65,12 +65,19 @@ function createDefaultState() {
     orientationComplete: false,
     narrativeBeatsShown: [],
 
+    // Milestone celebrations (track which ones have been shown)
+    milestonesShown: {
+      biomes: [], // ['mountain', 'coastal', 'arid', 'tundra']
+      starRarities: [] // [2, 3, 4, 5]
+    },
+
     // Tutorial
     tutorialActive: true,
     tutorialStep: 0,
     tutorialCompleted: false,
     sanctuaryUnlocked: false,
     hatcheryUnlocked: false,
+    hasSeenOfflineTip: false, // One-time tip about offline progress when assigning depleted bird to perch
 
     // Timestamps
     lastSaveTime: Date.now(),
@@ -79,12 +86,42 @@ function createDefaultState() {
   };
 }
 
+// Migration helper: Convert old percentage-based vitality to absolute energy values
+function migrateVitalityToAbsolute(bird) {
+  if (bird.vitality === undefined && bird.vitalityPercent !== undefined) {
+    const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+    bird.vitality = (bird.vitalityPercent / 100) * maxEnergy;
+    console.log(`Migrated bird ${bird.id}: ${bird.vitalityPercent}% -> ${bird.vitality}/${maxEnergy} energy`);
+  }
+  // Ensure vitality exists even if vitalityPercent was missing
+  if (bird.vitality === undefined) {
+    const maxEnergy = ENERGY_CAPACITY[bird.distinction] || ENERGY_CAPACITY[1];
+    bird.vitality = maxEnergy; // Default to full energy
+  }
+  return bird;
+}
+
 export function initializeState() {
   const loaded = loadGame();
 
   if (loaded) {
     gameState = loaded;
     console.log('Game loaded from localStorage');
+
+    // Migrate old saves to use absolute vitality
+    if (gameState.specimens && gameState.specimens.length > 0) {
+      gameState.specimens.forEach(bird => migrateVitalityToAbsolute(bird));
+      console.log('Vitality migration complete');
+    }
+
+    // Migrate old saves to include milestonesShown
+    if (!gameState.milestonesShown) {
+      gameState.milestonesShown = {
+        biomes: [],
+        starRarities: []
+      };
+      console.log('Milestones tracking initialized');
+    }
 
     // Calculate offline progress
     const offlineProgress = calculateOfflineProgress();

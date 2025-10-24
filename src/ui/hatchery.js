@@ -4,6 +4,8 @@ import { startBreeding, manualIncubate, unlockBreedingProgram } from '../systems
 import { matureBird } from '../systems/sanctuary.js';
 import { UNLOCK_COSTS, RARITY, TRAITS, MATURITY_COSTS } from '../core/constants.js';
 import { formatCompact } from '../utils/numbers.js';
+import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
+import { isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from '../systems/tutorial.js';
 
 let selectedParent1 = null;
 let selectedParent2 = null;
@@ -82,11 +84,39 @@ export function updateHatcheryUI() {
   import('../systems/tutorial.js').then(module => {
     if (module.isTutorialActive && module.isTutorialActive() &&
         module.getCurrentTutorialStep && module.getCurrentTutorialStep() === module.TUTORIAL_STEPS.BREEDING_TUTORIAL) {
-      setTimeout(() => {
-        import('../ui/tutorialArrow.js').then(arrowModule => {
-          arrowModule.showTutorialArrow('.breeding-program[data-program="0"] .parent-slot:first-child .parent-action-btn', 'down');
-        });
-      }, 300);
+
+      // Check if parent 1 has already been selected (don't show arrow if they're in the maturity phase)
+      const program0 = gameState.breedingPrograms[0];
+      const parent1Selected = selectedParent1 && selectedParent1.programSlot === 0;
+
+      if (parent1Selected) {
+        console.log('🎯 BREEDING_TUTORIAL: Parent 1 already selected, skipping arrow');
+        return;
+      }
+
+      console.log('🎯 BREEDING_TUTORIAL: Attempting to show arrow to Parent 1');
+
+      // Wait for the element to actually exist in the DOM (poll up to 2 seconds)
+      const selector = '.breeding-program-slot[data-program-slot="0"] .parent-select-box[data-parent="1"]';
+      let attempts = 0;
+      const maxAttempts = 20; // 20 attempts * 100ms = 2 seconds max
+
+      const waitForElement = setInterval(() => {
+        attempts++;
+        const targetElement = document.querySelector(selector);
+        console.log(`🎯 Parent 1 check (attempt ${attempts}):`, selector, 'Found:', !!targetElement);
+
+        if (targetElement) {
+          clearInterval(waitForElement);
+          console.log('🎯 Parent 1 element found! Showing arrow now.');
+          import('../ui/tutorialArrow.js').then(arrowModule => {
+            arrowModule.showTutorialArrow(selector, 'down');
+          });
+        } else if (attempts >= maxAttempts) {
+          clearInterval(waitForElement);
+          console.error('🎯 Parent 1 element never appeared after', maxAttempts, 'attempts');
+        }
+      }, 100); // Check every 100ms
     }
   });
 }
@@ -123,7 +153,7 @@ export function renderBreedingPrograms() {
       // Locked slot
       programDiv.innerHTML = `
         <div class="slot-header">
-          <span class="slot-title">Breeding Program ${program.program + 1}</span>
+          <span class="slot-title">Incubator ${program.program + 1}</span>
           <span class="slot-status locked">🔒 Locked</span>
         </div>
         <div class="slot-content">
@@ -153,7 +183,7 @@ export function renderBreedingPrograms() {
 
       programDiv.innerHTML = `
         <div class="slot-header">
-          <span class="slot-title">Breeding Program ${program.program + 1}</span>
+          <span class="slot-title">Incubator ${program.program + 1}</span>
           <span class="slot-status active">🥚 Incubating</span>
         </div>
         <div class="slot-content">
@@ -195,7 +225,7 @@ export function renderBreedingPrograms() {
 
       programDiv.innerHTML = `
         <div class="slot-header">
-          <span class="slot-title">Breeding Program ${program.program + 1}</span>
+          <span class="slot-title">Incubator ${program.program + 1}</span>
           <span class="slot-status empty">Empty</span>
         </div>
         <div class="slot-content">
@@ -204,10 +234,11 @@ export function renderBreedingPrograms() {
               ${parent1
                 ? `<span class="bird-name">${parent1.speciesName}</span><span class="bird-rarity-biome">${RARITY[parent1.distinction]?.stars || ''} ${getBiomeEmoji(parent1.biome)}</span>${!parent1.isMature ? (() => {
                   const totalCost = MATURITY_COSTS[parent1.distinction] || 100;
-                  const costPerTap = Math.ceil(totalCost * 0.1);
                   const maturityPercent = parent1.maturityProgress || 0;
+                  const costPerTap = Math.ceil(totalCost * 0.1);
+                  const totalRemaining = totalCost - Math.floor(totalCost * maturityPercent / 100);
                   const canAfford = gameState.seeds >= costPerTap;
-                  return '<button class="mature-btn-inline" data-bird-id="' + parent1.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(costPerTap) + '🫘</button>';
+                  return '<button class="mature-btn-inline" data-bird-id="' + parent1.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(totalRemaining) + '🫘</button>';
                 })() : ''}`
                 : '<span class="select-prompt">Select Parent 1</span>'}
             </button>
@@ -216,10 +247,11 @@ export function renderBreedingPrograms() {
               ${parent2
                 ? `<span class="bird-name">${parent2.speciesName}</span><span class="bird-rarity-biome">${RARITY[parent2.distinction]?.stars || ''} ${getBiomeEmoji(parent2.biome)}</span>${!parent2.isMature ? (() => {
                   const totalCost = MATURITY_COSTS[parent2.distinction] || 100;
-                  const costPerTap = Math.ceil(totalCost * 0.1);
                   const maturityPercent = parent2.maturityProgress || 0;
+                  const costPerTap = Math.ceil(totalCost * 0.1);
+                  const totalRemaining = totalCost - Math.floor(totalCost * maturityPercent / 100);
                   const canAfford = gameState.seeds >= costPerTap;
-                  return '<button class="mature-btn-inline" data-bird-id="' + parent2.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(costPerTap) + '🫘</button>';
+                  return '<button class="mature-btn-inline" data-bird-id="' + parent2.id + '" ' + (!canAfford ? 'disabled' : '') + ' title="Maturity: ' + maturityPercent + '%">' + formatCompact(totalRemaining) + '🫘</button>';
                 })() : ''}`
                 : '<span class="select-prompt">Select Parent 2</span>'}
             </button>
@@ -254,7 +286,20 @@ export function renderBreedingPrograms() {
           const birdId = btn.dataset.birdId;
           const bird = getBirdById(birdId);
           if (bird && matureBird(birdId)) {
-            updateHatcheryUI();
+            // Update button inline without full UI refresh
+            updateMatureButtonInline(btn, bird);
+            // Update seeds display in header
+            const seedsElement = document.getElementById('seeds-amount');
+            if (seedsElement) {
+              seedsElement.textContent = Math.floor(gameState.seeds).toLocaleString();
+            }
+
+            // Tutorial hook
+            import('../systems/tutorial.js').then(module => {
+              if (module.handleMaturityIncrease) {
+                module.handleMaturityIncrease(birdId);
+              }
+            });
           } else {
             alert('Not enough Seeds for maturation!');
           }
@@ -278,6 +323,14 @@ export function renderBreedingPrograms() {
 
         // Attempt to start breeding
         if (startBreeding(parent1.id, parent2.id, program.program)) {
+          // Hide tutorial arrow when starting breeding
+          import('../ui/tutorialArrow.js').then(module => {
+            if (module.hideTutorialArrow) {
+              console.log('🎯 Hiding arrow as breeding starts');
+              module.hideTutorialArrow();
+            }
+          });
+
           // Clear selections for this program
           if (selectedParent1?.programSlot === program.program) selectedParent1 = null;
           if (selectedParent2?.programSlot === program.program) selectedParent2 = null;
@@ -301,22 +354,41 @@ export function renderMatureBirds() {
 }
 
 function showBirdSelectionModal() {
+  // Hide tutorial arrow when opening bird selection modal
+  import('../ui/tutorialArrow.js').then(module => {
+    if (module.hideTutorialArrow) {
+      console.log('🎯 Hiding arrow as bird selection modal opens');
+      module.hideTutorialArrow();
+    }
+  });
+
   const modal = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
 
-  // Sort birds: mature & available first, then mature & assigned, then immature
-  const allBirds = [...gameState.specimens].sort((a, b) => {
-    const aAvailable = a.isMature && a.location === 'collection';
-    const bAvailable = b.isMature && b.location === 'collection';
-    const aAssigned = a.isMature && a.location !== 'collection';
-    const bAssigned = b.isMature && b.location !== 'collection';
+  // Get the other parent's bird to exclude it from selection
+  const otherParentBird = currentSelectingParent === 1
+    ? (selectedParent2?.programSlot === currentSelectingProgram ? selectedParent2.bird : null)
+    : (selectedParent1?.programSlot === currentSelectingProgram ? selectedParent1.bird : null);
 
-    if (aAvailable && !bAvailable) return -1;
-    if (!aAvailable && bAvailable) return 1;
-    if (aAssigned && !bAssigned && !bAvailable) return -1;
-    if (!aAssigned && bAssigned && !aAvailable) return 1;
-    return 0;
-  });
+  // Sort birds: mature & available first, then mature & assigned, then immature
+  // Birds on perches are considered available (not "in use")
+  // EXCLUDE the other parent's bird from the list
+  const allBirds = [...gameState.specimens]
+    .filter(b => !otherParentBird || b.id !== otherParentBird.id) // Exclude other parent
+    .sort((a, b) => {
+      const aOnPerch = a.location.startsWith('perch_');
+      const bOnPerch = b.location.startsWith('perch_');
+      const aAvailable = a.isMature && (a.location === 'collection' || aOnPerch);
+      const bAvailable = b.isMature && (b.location === 'collection' || bOnPerch);
+      const aAssigned = a.isMature && a.location !== 'collection' && !aOnPerch;
+      const bAssigned = b.isMature && b.location !== 'collection' && !bOnPerch;
+
+      if (aAvailable && !bAvailable) return -1;
+      if (!aAvailable && bAvailable) return 1;
+      if (aAssigned && !bAssigned && !bAvailable) return -1;
+      if (!aAssigned && bAssigned && !aAvailable) return 1;
+      return 0;
+    });
 
   const matureBirds = allBirds.filter(b => b.isMature);
   const immatureBirds = allBirds.filter(b => !b.isMature);
@@ -328,7 +400,8 @@ function showBirdSelectionModal() {
         <div class="bird-selection-section">
           <h4 class="section-label">Mature Birds</h4>
           ${matureBirds.map(bird => {
-            const isAvailable = bird.location === 'collection';
+            const isOnPerch = bird.location.startsWith('perch_');
+            const isAvailable = bird.location === 'collection' || isOnPerch;
             const isAssigned = !isAvailable;
             const vitalityPercent = bird.vitalityPercent;
             const maturityPercent = bird.isMature ? 100 : 0;
@@ -424,6 +497,13 @@ function showBirdSelectionModal() {
 
       modal.classList.add('hidden');
       updateHatcheryUI();
+
+      // Tutorial hook
+      import('../systems/tutorial.js').then(module => {
+        if (module.handleParentAssignment) {
+          module.handleParentAssignment(currentSelectingProgram, currentSelectingParent, bird.id);
+        }
+      });
     });
   });
 
@@ -513,4 +593,54 @@ export function updateBreedingProgressBars() {
       }
     }
   });
+}
+
+// Helper function to update mature button inline without full UI refresh
+function updateMatureButtonInline(btn, bird) {
+  if (!bird) return;
+
+  const totalCost = MATURITY_COSTS[bird.distinction] || 100;
+  const maturityPercent = bird.maturityProgress || 0;
+  const costPerTap = Math.ceil(totalCost * 0.1);
+  const totalRemaining = totalCost - Math.floor(totalCost * maturityPercent / 100);
+  const canAfford = gameState.seeds >= costPerTap;
+
+  // If bird is now mature, remove the button
+  if (bird.isMature) {
+    btn.remove();
+    return;
+  }
+
+  // Update button text and state
+  btn.textContent = formatCompact(totalRemaining) + '🫘';
+  btn.title = `Maturity: ${maturityPercent}%`;
+  btn.disabled = !canAfford;
+}
+
+// Hint system integration for Hatchery screen
+let hatcheryHintTimeout = null;
+let hatcheryHintShown = false;
+
+export function checkHatcheryHints() {
+  // Don't show hints during early tutorial
+  if (isTutorialActive() && getCurrentTutorialStep() < TUTORIAL_STEPS.BREEDING_TUTORIAL) return;
+
+  // Don't show hints if not on Hatchery screen
+  const hatcheryScreen = document.getElementById('screen-hatchery');
+  if (!hatcheryScreen || !hatcheryScreen.classList.contains('active')) {
+    clearAllHints();
+    if (hatcheryHintTimeout) clearTimeout(hatcheryHintTimeout);
+    hatcheryHintTimeout = null;
+    hatcheryHintShown = false;
+    return;
+  }
+
+  // Start 2-second timer when screen becomes active
+  if (!hatcheryHintShown) {
+    if (hatcheryHintTimeout) clearTimeout(hatcheryHintTimeout);
+    hatcheryHintTimeout = setTimeout(() => {
+      showHint('hatchery');
+      hatcheryHintShown = true;
+    }, 2000);
+  }
 }
