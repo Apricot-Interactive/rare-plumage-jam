@@ -161,6 +161,13 @@ export function updateForagerVitality(dt) {
         console.error('handleExhaustedBirds not found in wilds.js module');
       }
     });
+
+    // Auto-assign exhausted birds to empty perches
+    import('./sanctuary.js').then(module => {
+      if (module.autoAssignDepletedBirds) {
+        module.autoAssignDepletedBirds();
+      }
+    });
   }
 }
 
@@ -181,6 +188,13 @@ export function assignForager(biomeId, slot, birdId) {
   // (biome 1 needs 1*, biome 2 needs 2*, etc.)
   if (bird.distinction < biome.unlockRequirement) {
     console.log(`Bird ${bird.speciesName} (${bird.distinction}⭐) doesn't meet ${biome.name} requirement (${biome.unlockRequirement}⭐)`);
+
+    // Show error toast
+    import('../ui/modals.js').then(module => {
+      const stars = '⭐'.repeat(biome.unlockRequirement);
+      module.showToast(`${biome.name} requires ${stars} birds`);
+    });
+
     return false;
   }
 

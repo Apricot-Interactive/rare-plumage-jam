@@ -37,7 +37,7 @@ export function updateGrooming(dt) {
   });
 }
 
-export function assignPerch(slot, birdId) {
+export function assignPerch(slot, birdId, isAutoAssign = false) {
   if (!gameState) return false;
 
   const perch = gameState.perches.find(p => p.slot === slot);
@@ -73,10 +73,10 @@ export function assignPerch(slot, birdId) {
     }
   });
 
-  // One-time offline tip: Show when player first rests a depleted bird AFTER free play
-  // Only trigger if bird has ≤10% energy and tutorial is at FREE_PLAY or later
+  // One-time offline tip: Show when player MANUALLY assigns a depleted bird AFTER free play
+  // Only trigger if bird has ≤10% energy, tutorial is at FREE_PLAY or later, and NOT auto-assigned
   const isFreePlayOrLater = gameState.tutorialStep >= 9 || gameState.tutorialCompleted;
-  if (!gameState.hasSeenOfflineTip && bird.vitalityPercent <= 10 && isFreePlayOrLater) {
+  if (!isAutoAssign && !gameState.hasSeenOfflineTip && bird.vitalityPercent <= 10 && isFreePlayOrLater) {
     gameState.hasSeenOfflineTip = true;
 
     // Show tip modal after tutorial hook completes
@@ -108,6 +108,50 @@ export function unassignPerch(slot) {
   perch.assignedAt = null;
 
   console.log(`Unassigned from Perch ${slot + 1}`);
+  return true;
+}
+
+// Auto-assign depleted birds to empty perches (highest star birds first)
+// Returns true if a bird was auto-assigned
+export function autoAssignDepletedBirds() {
+  if (!gameState) return false;
+
+  // Suppress auto-assign during tutorial (only activate after free play starts)
+  // Check if tutorial is completed OR at free play step or later
+  const isFreePlayOrLater = gameState.tutorialCompleted || gameState.tutorialStep >= 9;
+  if (!isFreePlayOrLater) {
+    return false;
+  }
+
+  // Suppress auto-assign while player is on Sanctuary screen
+  // This prevents auto-assignment while player is manually managing perches
+  const sanctuaryScreen = document.getElementById('screen-sanctuary');
+  if (sanctuaryScreen && sanctuaryScreen.classList.contains('active')) {
+    return false;
+  }
+
+  // Find empty unlocked perches
+  const emptyPerches = gameState.perches.filter(p => p.unlocked && !p.birdId);
+  if (emptyPerches.length === 0) return false;
+
+  // Find depleted birds in collection (vitality <= 0)
+  const depletedBirds = gameState.specimens.filter(bird =>
+    bird.location === 'collection' && bird.vitalityPercent <= 0
+  );
+
+  if (depletedBirds.length === 0) return false;
+
+  // Sort by highest star level first (most valuable)
+  depletedBirds.sort((a, b) => b.distinction - a.distinction);
+
+  // Assign the highest star depleted bird to the first empty perch
+  const birdToAssign = depletedBirds[0];
+  const emptyPerch = emptyPerches[0];
+
+  // Pass isAutoAssign = true to prevent offline tip from showing
+  assignPerch(emptyPerch.slot, birdToAssign.id, true);
+  console.log(`🛏️ Auto-assigned ${birdToAssign.speciesName} (${birdToAssign.distinction}⭐, 0% energy) to Perch ${emptyPerch.slot + 1}`);
+
   return true;
 }
 

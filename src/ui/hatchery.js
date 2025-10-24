@@ -2,10 +2,11 @@
 import { gameState, getBirdById, spendSeeds } from '../core/state.js';
 import { startBreeding, manualIncubate, unlockBreedingProgram } from '../systems/breeding.js';
 import { matureBird } from '../systems/sanctuary.js';
-import { UNLOCK_COSTS, RARITY, TRAITS, MATURITY_COSTS } from '../core/constants.js';
+import { UNLOCK_COSTS, RARITY, TRAITS, MATURITY_COSTS, INCUBATION_TAP_PROGRESS } from '../core/constants.js';
 import { formatCompact } from '../utils/numbers.js';
 import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
 import { isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from '../systems/tutorial.js';
+import { getBirdSpritePath } from '../utils/sprites.js';
 
 let selectedParent1 = null;
 let selectedParent2 = null;
@@ -48,7 +49,7 @@ export function showBreedingCelebration(newBird, parent1, parent2, programSlot) 
         </div>
       </div>
       <div class="celebration-offspring">
-        <img src="/assets/birds/bird-${newBird.distinction}star.png" class="celebration-bird-img" />
+        <img src="${getBirdSpritePath(newBird)}" class="celebration-bird-img" />
         <div class="offspring-name">${newBird.speciesName}</div>
         <div class="offspring-rarity">${RARITY[newBird.distinction]?.stars || ''}</div>
         <div class="offspring-traits">${newBird.traits.map(t => TRAITS[t]?.name || t).join(', ')}</div>
@@ -208,7 +209,7 @@ export function renderBreedingPrograms() {
             </div>
           </div>
           <button class="incubate-btn" data-program="${program.program}">
-            Manual Incubate (+1%)
+            Nudge (+${INCUBATION_TAP_PROGRESS[program.offspringDistinction] || 1}%)
           </button>
         </div>
       `;
@@ -390,61 +391,66 @@ function showBirdSelectionModal() {
       return 0;
     });
 
-  const matureBirds = allBirds.filter(b => b.isMature);
-  const immatureBirds = allBirds.filter(b => !b.isMature);
+  // Categorize birds as Free (available) or Busy (assigned elsewhere)
+  const freeBirds = allBirds.filter(b => {
+    const isOnPerch = b.location.startsWith('perch_');
+    return b.location === 'collection' || isOnPerch;
+  });
+  const busyBirds = allBirds.filter(b => {
+    const isOnPerch = b.location.startsWith('perch_');
+    return b.location !== 'collection' && !isOnPerch;
+  });
 
   content.innerHTML = `
     <h3>Select Parent ${currentSelectingParent}</h3>
     <div class="bird-selection-list">
-      ${matureBirds.length > 0 ? `
+      ${freeBirds.length > 0 ? `
         <div class="bird-selection-section">
-          <h4 class="section-label">Mature Birds</h4>
-          ${matureBirds.map(bird => {
-            const isOnPerch = bird.location.startsWith('perch_');
-            const isAvailable = bird.location === 'collection' || isOnPerch;
-            const isAssigned = !isAvailable;
+          <h4 class="section-label">Free</h4>
+          ${freeBirds.map(bird => {
             const vitalityPercent = bird.vitalityPercent;
             const maturityPercent = bird.isMature ? 100 : 0;
             const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
             const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
+            const canBreed = bird.isMature;
             return `
-              <div class="bird-selection-item ${isAssigned ? 'assigned' : ''}" data-bird-id="${bird.id}">
+              <div class="bird-selection-item ${!canBreed ? 'immature' : ''}" data-bird-id="${bird.id}">
                 <div class="btn-bird-icon-wrapper">
                   <svg class="bird-rings" viewBox="0 0 100 100">
                     <!-- Frame Ring (outermost, drawn first) -->
-                    <circle class="frame-ring ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="37" />
+                    <circle class="frame-ring ${!canBreed ? 'greyed' : ''}" cx="50" cy="50" r="37" />
                     <!-- Vitality Ring (middle, green) -->
                     <circle class="vitality-ring-bg" cx="50" cy="50" r="31" />
-                    <circle class="vitality-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="31"
+                    <circle class="vitality-ring-fill ${!canBreed ? 'greyed' : ''}" cx="50" cy="50" r="31"
                             style="stroke-dashoffset: ${vitalityStrokeOffset}" />
                     <!-- Maturity Ring (innermost, blue, drawn last) -->
                     <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
-                    <circle class="maturity-ring-fill ${isAssigned ? 'greyed' : ''}" cx="50" cy="50" r="25"
+                    <circle class="maturity-ring-fill ${!canBreed ? 'greyed' : ''}" cx="50" cy="50" r="25"
                             style="stroke-dashoffset: ${maturityStrokeOffset}" />
                   </svg>
-                  <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon ${isAssigned ? 'greyed' : ''}" />
+                  <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon ${!canBreed ? 'greyed' : ''}" />
                 </div>
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
                   <span class="bird-biome">🌿 ${bird.biome.charAt(0).toUpperCase() + bird.biome.slice(1)}</span>
-                  ${isAssigned ? `<span class="location-label">Assigned: ${formatLocation(bird.location)}</span>` : ''}
+                  ${!canBreed ? `<span class="immature-label">Not mature</span>` : ''}
                 </div>
               </div>
             `;
           }).join('')}
         </div>
       ` : ''}
-      ${immatureBirds.length > 0 ? `
+      ${busyBirds.length > 0 ? `
         <div class="bird-selection-section">
-          <h4 class="section-label">Immature Birds</h4>
-          ${immatureBirds.map(bird => {
+          <h4 class="section-label">Busy</h4>
+          ${busyBirds.map(bird => {
             const vitalityPercent = bird.vitalityPercent;
             const maturityPercent = bird.isMature ? 100 : 0;
             const vitalityStrokeOffset = 195 - (195 * vitalityPercent / 100);
             const maturityStrokeOffset = 157 - (157 * maturityPercent / 100);
             return `
-              <div class="bird-selection-item immature" data-bird-id="${bird.id}">
+              <div class="bird-selection-item assigned" data-bird-id="${bird.id}">
                 <div class="btn-bird-icon-wrapper">
                   <svg class="bird-rings" viewBox="0 0 100 100">
                     <!-- Frame Ring (outermost, drawn first) -->
@@ -458,13 +464,13 @@ function showBirdSelectionModal() {
                     <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="25"
                             style="stroke-dashoffset: ${maturityStrokeOffset}" />
                   </svg>
-                  <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+                  <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon greyed" />
                 </div>
                 <div class="bird-info">
                   <span class="bird-name">${bird.customDesignation || bird.speciesName}</span>
                   <span class="bird-rarity" style="color: ${RARITY[bird.distinction]?.color}">${RARITY[bird.distinction]?.stars}</span>
                   <span class="bird-biome">🌿 ${bird.biome.charAt(0).toUpperCase() + bird.biome.slice(1)}</span>
-                  <span class="immature-label">Not mature</span>
+                  <span class="location-label">Assigned: ${formatLocation(bird.location)}</span>
                 </div>
               </div>
             `;
@@ -559,10 +565,35 @@ function showBreedingRequirementsModal(message) {
 
 function formatLocation(location) {
   if (location === 'collection') return 'Collection';
-  if (location.startsWith('forager_')) return `Forager ${parseInt(location.split('_')[1]) + 1}`;
-  if (location.startsWith('perch_')) return `Perch ${parseInt(location.split('_')[1]) + 1}`;
-  if (location.startsWith('assistant_')) return `Survey: ${location.split('_')[1]}`;
-  if (location.startsWith('breeding_')) return `Breeding ${parseInt(location.split('_')[1]) + 1}`;
+
+  // Format: forager_biomeId_slot (e.g., forager_forest_0)
+  if (location.startsWith('forager_')) {
+    const parts = location.split('_');
+    const biomeId = parts[1];
+    const slot = parseInt(parts[2]);
+    const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+    return `${biomeName} Forager ${slot + 1}`;
+  }
+
+  // Format: perch_slot (e.g., perch_0)
+  if (location.startsWith('perch_')) {
+    const slot = parseInt(location.split('_')[1]);
+    return `Perch ${slot + 1}`;
+  }
+
+  // Format: surveyor_biomeId (e.g., surveyor_forest)
+  if (location.startsWith('surveyor_')) {
+    const biomeId = location.split('_')[1];
+    const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
+    return `${biomeName} Survey`;
+  }
+
+  // Format: breeding_program (e.g., breeding_0)
+  if (location.startsWith('breeding_')) {
+    const program = parseInt(location.split('_')[1]);
+    return `Breeding Program ${program + 1}`;
+  }
+
   return location;
 }
 

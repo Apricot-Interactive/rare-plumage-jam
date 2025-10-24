@@ -1,5 +1,5 @@
 // SANCTUARY - Survey System (Biome-based)
-import { gameState, getBirdById, spendSeeds } from '../core/state.js';
+import { gameState, getBirdById, spendSeeds, enforceBirdLimit } from '../core/state.js';
 import { SURVEY_COSTS, FORAGER_BASE_RATES, UNLOCK_COSTS, ENERGY_CAPACITY } from '../core/constants.js';
 import { createSpecimen } from '../data/species.js';
 import { unassignBirdFromCurrentLocation, calculateForagerSlotIncome } from './foragers.js';
@@ -45,8 +45,12 @@ export function updateSurveyProgress(dt) {
     const survey = biome.survey;
     const totalCost = SURVEY_COSTS[biome.id] || 360;
 
-    // Check if survey already complete
-    if (survey.progress >= totalCost) return;
+    // Check if survey already complete and trigger completion if stuck at 100%
+    if (survey.progress >= totalCost) {
+      // Safety net: If survey is stuck at 100%, trigger completion
+      completeSurvey(biome.id);
+      return;
+    }
 
     // Calculate total contribution from all assigned birds
     let totalContribution = 0;
@@ -177,12 +181,15 @@ export function completeSurvey(biomeId) {
 
   console.log(`Survey completed: ${biomeId}`);
 
+  // ALWAYS reset survey first to prevent infinite completion loops
+  const oldProgress = survey.progress;
+  survey.progress = 0;
+  survey.lastUpdateTime = null;
+
   // Check if this is the tutorial's first survey
   const tutorialHandled = handleFirstSurveyFromTutorial(biomeId);
   if (tutorialHandled) {
-    // Reset survey
-    survey.progress = 0;
-    survey.lastUpdateTime = null;
+    console.log(`Tutorial handled first survey completion for ${biomeId}`);
     return;
   }
 
@@ -222,10 +229,28 @@ export function completeSurvey(biomeId) {
   // Apply biome cap
   distinction = Math.min(distinction, maxDistinction);
 
+  // Enforce bird limit BEFORE adding new bird (max 8 per rarity)
+  const birdWasDeleted = enforceBirdLimit(distinction);
+
   // Create new specimen
   const newBird = createSpecimen(biomeId, distinction);
   if (newBird) {
     gameState.specimens.push(newBird);
+
+    // Show first-time warning if a bird was deleted
+    if (birdWasDeleted && !gameState.birdLimitWarningShown) {
+      gameState.birdLimitWarningShown = true;
+      const stars = '⭐'.repeat(distinction);
+      import('../ui/modals.js').then(module => {
+        module.showTutorialModal(
+          `When we have too many ${stars} birds in our sanctuary, some start to move on.`,
+          'normal',
+          () => {
+            module.hideTutorialModal();
+          }
+        );
+      });
+    }
 
     // Add to catalogued species if new
     if (!gameState.cataloguedSpecies.includes(newBird.speciesName)) {
@@ -249,9 +274,7 @@ export function completeSurvey(biomeId) {
     });
   }
 
-  // Reset survey
-  survey.progress = 0;
-  survey.lastUpdateTime = null;
+  // Survey already reset at beginning of function
 }
 
 // Handle tutorial first survey completion
@@ -277,6 +300,13 @@ export function assignSurveyor(biomeId, birdId) {
   // (biome 1 needs 1*, biome 2 needs 2*, etc.)
   if (bird.distinction < biome.unlockRequirement) {
     console.log(`Bird ${bird.speciesName} (${bird.distinction}⭐) doesn't meet ${biome.name} survey requirement (${biome.unlockRequirement}⭐)`);
+
+    // Show error toast
+    import('../ui/modals.js').then(module => {
+      const stars = '⭐'.repeat(biome.unlockRequirement);
+      module.showToast(`${biome.name} requires ${stars} birds`);
+    });
+
     return false;
   }
 

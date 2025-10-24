@@ -1,6 +1,6 @@
 // SANCTUARY - Breeding System
-import { gameState, getBirdById } from '../core/state.js';
-import { BREEDING_DURATION, DISTINCTION_INHERITANCE, TRAIT_COUNT } from '../core/constants.js';
+import { gameState, getBirdById, enforceBirdLimit } from '../core/state.js';
+import { BREEDING_DURATION, DISTINCTION_INHERITANCE, TRAIT_COUNT, INCUBATION_TAP_PROGRESS } from '../core/constants.js';
 import { createSpecimen } from '../data/species.js';
 import { randomChoice } from '../utils/random.js';
 import { getActiveGuests } from './sanctuary.js';
@@ -131,8 +131,9 @@ export function startBreeding(parent1Id, parent2Id, programSlot) {
   program.startTime = Date.now();
   program.estimatedDuration = finalDuration * 60000; // Convert minutes to ms
   program.lastUpdateTime = Date.now();
+  program.offspringDistinction = offspring.distinction; // Store for manual incubation calculation
 
-  console.log(`Started breeding in program ${programSlot} (${finalDuration} min)`);
+  console.log(`Started breeding in program ${programSlot} (${finalDuration} min, ${offspring.distinction}⭐ offspring)`);
   return true;
 }
 
@@ -151,7 +152,8 @@ export function updateBreedingProgress(dt) {
     program.progress += progressIncrease;
 
     // Cap auto-progress at 99% - player must manually tap for the last 1%
-    if (program.progress > 99) {
+    // IMPORTANT: Only cap if not already at 100% (which means manual tap just completed it)
+    if (program.progress > 99 && program.progress < 100) {
       program.progress = 99;
     }
 
@@ -167,11 +169,19 @@ export function manualIncubate(programSlot) {
   const program = gameState.breedingPrograms.find(p => p.program === programSlot);
   if (!program || !program.active) return false;
 
-  // Manual tap adds 1% progress
-  program.progress = Math.min(100, program.progress + 1);
+  // Get tap progress based on offspring distinction (defaults to 1% if not set)
+  const offspringDistinction = program.offspringDistinction || 1;
+  const tapProgress = INCUBATION_TAP_PROGRESS[offspringDistinction] || 1;
+
+  // Manual tap adds star-based progress
+  const oldProgress = program.progress;
+  program.progress = Math.min(100, program.progress + tapProgress);
+
+  console.log(`Incubate tap: ${tapProgress}% added (${offspringDistinction}⭐ offspring), ${oldProgress.toFixed(1)}% → ${program.progress.toFixed(1)}%`);
 
   // Check for completion
   if (program.progress >= 100) {
+    console.log(`🥚 Triggering breeding completion for program ${programSlot}`);
     completeBreeding(programSlot);
   }
 
@@ -182,7 +192,10 @@ export function completeBreeding(programSlot) {
   if (!gameState) return;
 
   const program = gameState.breedingPrograms.find(p => p.program === programSlot);
-  if (!program || !program.active) return;
+  if (!program || !program.active) {
+    console.log(`⚠️ completeBreeding called but program ${programSlot} is ${!program ? 'missing' : 'not active'}`);
+    return;
+  }
 
   const parent1 = getBirdById(program.lineage1Id);
   const parent2 = getBirdById(program.lineage2Id);
@@ -199,11 +212,29 @@ export function completeBreeding(programSlot) {
   if (isLegendary) {
     // Create legendary specimen
     console.log(`🌟 LEGENDARY BREEDING! Creating ${parent1.biome} legendary...`);
+
+    // Enforce bird limit BEFORE adding new bird (max 8 per rarity) - Legendaries are 5-star
+    const birdWasDeleted = enforceBirdLimit(5);
+
     // Import createLegendarySpecimen function
     import('../data/species.js').then(module => {
       const legendary = module.createLegendarySpecimen(parent1.biome);
       if (legendary) {
         gameState.specimens.push(legendary);
+
+        // Show first-time warning if a bird was deleted
+        if (birdWasDeleted && !gameState.birdLimitWarningShown) {
+          gameState.birdLimitWarningShown = true;
+          import('../ui/modals.js').then(modalModule => {
+            modalModule.showTutorialModal(
+              `When we have too many ⭐⭐⭐⭐⭐ birds in our sanctuary, some start to move on.`,
+              'normal',
+              () => {
+                modalModule.hideTutorialModal();
+              }
+            );
+          });
+        }
 
         // Add to catalogued species if new
         if (!gameState.cataloguedSpecies.includes(legendary.speciesName)) {
@@ -246,6 +277,9 @@ export function completeBreeding(programSlot) {
     return;
   }
 
+  // Enforce bird limit BEFORE adding new bird (max 8 per rarity)
+  const birdWasDeleted = enforceBirdLimit(offspringData.distinction);
+
   // Create new specimen
   newBird = createSpecimen(
     offspringData.biome,
@@ -256,6 +290,21 @@ export function completeBreeding(programSlot) {
 
   if (newBird) {
     gameState.specimens.push(newBird);
+
+    // Show first-time warning if a bird was deleted
+    if (birdWasDeleted && !gameState.birdLimitWarningShown) {
+      gameState.birdLimitWarningShown = true;
+      const stars = '⭐'.repeat(newBird.distinction);
+      import('../ui/modals.js').then(module => {
+        module.showTutorialModal(
+          `When we have too many ${stars} birds in our sanctuary, some start to move on.`,
+          'normal',
+          () => {
+            module.hideTutorialModal();
+          }
+        );
+      });
+    }
 
     // Add to catalogued species if new
     if (!gameState.cataloguedSpecies.includes(newBird.speciesName)) {

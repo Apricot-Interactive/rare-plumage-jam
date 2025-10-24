@@ -1,5 +1,5 @@
 // SANCTUARY - Game State Management
-import { GAME_CONFIG, UNLOCK_COSTS, BIOMES, SURVEY_COSTS, ENERGY_CAPACITY } from './constants.js';
+import { GAME_CONFIG, UNLOCK_COSTS, BIOMES, SURVEY_COSTS, ENERGY_CAPACITY, MAX_BIRDS_PER_RARITY } from './constants.js';
 import { STORAGE_KEYS } from './constants.js';
 import { generateId } from '../utils/random.js';
 import { calculateOfflineProgress } from '../systems/offline.js';
@@ -47,6 +47,7 @@ function createDefaultState() {
       { slot: 3, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[3], assignedAt: null, restoreCooldown: 0 },
       { slot: 4, birdId: null, unlocked: false, unlockCost: UNLOCK_COSTS.perches[4], assignedAt: null, restoreCooldown: 0 }
     ],
+    activePerchIndex: 0, // Which perch is in the "active" (top) position
 
     // Breeding Programs (3 slots)
     breedingPrograms: [
@@ -70,6 +71,9 @@ function createDefaultState() {
       biomes: [], // ['mountain', 'coastal', 'arid', 'tundra']
       starRarities: [] // [2, 3, 4, 5]
     },
+
+    // Bird limit system
+    birdLimitWarningShown: false, // Track if "birds moving on" message has been shown
 
     // Tutorial
     tutorialActive: true,
@@ -121,6 +125,18 @@ export function initializeState() {
         starRarities: []
       };
       console.log('Milestones tracking initialized');
+    }
+
+    // Migrate old saves to include birdLimitWarningShown
+    if (gameState.birdLimitWarningShown === undefined) {
+      gameState.birdLimitWarningShown = false;
+      console.log('Bird limit warning tracking initialized');
+    }
+
+    // Migrate old saves to include activePerchIndex
+    if (gameState.activePerchIndex === undefined) {
+      gameState.activePerchIndex = 0;
+      console.log('Active perch index initialized');
     }
 
     // Calculate offline progress
@@ -197,6 +213,64 @@ export function spendSeeds(amount) {
   if (gameState.seeds < amount) return false;
   gameState.seeds -= amount;
   return true;
+}
+
+// Enforce bird limit per rarity (max 8 of each star level)
+// MUST be called BEFORE adding a new bird to ensure we never exceed the limit
+// Returns true if a bird was deleted, false otherwise
+export function enforceBirdLimit(newBirdDistinction) {
+  if (!gameState) return false;
+
+  // Count birds of this rarity
+  const birdsOfThisRarity = gameState.specimens.filter(
+    bird => bird.distinction === newBirdDistinction
+  );
+
+  // If we're at the limit, remove the least valuable bird to make room
+  // IMPORTANT: Check >= MAX_BIRDS_PER_RARITY (not >) because we're about to add one
+  if (birdsOfThisRarity.length >= MAX_BIRDS_PER_RARITY) {
+    // Find unused birds (not assigned to any job)
+    const unusedBirds = birdsOfThisRarity.filter(bird => {
+      const isInCollection = bird.location === 'collection';
+      const isOnPerch = bird.location.startsWith('perch_');
+      return isInCollection || isOnPerch;
+    });
+
+    if (unusedBirds.length === 0) {
+      // All birds are working! This should never happen, but if it does, log error
+      console.error(`⚠️ Cannot enforce bird limit - all ${birdsOfThisRarity.length} birds of ${newBirdDistinction}⭐ are working!`);
+      return false;
+    }
+
+    // Sort unused birds by priority (least valuable first)
+    // Priority: immature before mature, low maturity progress before high, low energy before high
+    unusedBirds.sort((a, b) => {
+      // First sort by maturity (immature before mature)
+      if (!a.isMature && b.isMature) return -1;
+      if (a.isMature && !b.isMature) return 1;
+
+      // If same maturity, sort by maturity progress
+      const aMaturityProgress = a.maturityProgress || 0;
+      const bMaturityProgress = b.maturityProgress || 0;
+      if (aMaturityProgress !== bMaturityProgress) {
+        return aMaturityProgress - bMaturityProgress;
+      }
+
+      // If same maturity progress, sort by vitality (least energy first)
+      return a.vitalityPercent - b.vitalityPercent;
+    });
+
+    // Remove the least valuable bird
+    const birdToRemove = unusedBirds[0];
+    const birdIndex = gameState.specimens.findIndex(b => b.id === birdToRemove.id);
+    if (birdIndex !== -1) {
+      gameState.specimens.splice(birdIndex, 1);
+      console.log(`🚪 Bird removed to make room: ${birdToRemove.speciesName} (${newBirdDistinction}⭐, ${birdsOfThisRarity.length} → ${MAX_BIRDS_PER_RARITY})`);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Reset game state to default

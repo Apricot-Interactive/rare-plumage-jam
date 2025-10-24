@@ -14,6 +14,50 @@ import { isArrowVisible } from '../ui/tutorialArrow.js';
 // Add new hints in priority order (most important first)
 
 const HINT_REGISTRY = [
+  // ============ HIGHEST PRIORITY: HATCHERY READY ============
+  // If any bird is at 99%, always prioritize showing hatchery
+
+  {
+    id: 'navigate-to-hatchery-ready-from-wilds',
+    screen: 'wilds',
+    check: () => {
+      // Only show if NOT already on hatchery
+      const hatcheryScreen = document.getElementById('screen-hatchery');
+      if (hatcheryScreen?.classList.contains('active')) return false;
+
+      // Check if any bird at 99%
+      for (const program of gameState.breedingPrograms) {
+        if (program.active && program.progress >= 99) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      return document.querySelector('.nav-button[data-screen="hatchery"]');
+    }
+  },
+  {
+    id: 'navigate-to-hatchery-ready-from-sanctuary',
+    screen: 'sanctuary',
+    check: () => {
+      // Only show if NOT already on hatchery
+      const hatcheryScreen = document.getElementById('screen-hatchery');
+      if (hatcheryScreen?.classList.contains('active')) return false;
+
+      // Check if any bird at 99%
+      for (const program of gameState.breedingPrograms) {
+        if (program.active && program.progress >= 99) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      return document.querySelector('.nav-button[data-screen="hatchery"]');
+    }
+  },
+
   // ============ WILDS SCREEN HINTS ============
 
   // Priority 1: Assign unassigned birds to empty surveyor slots
@@ -21,11 +65,17 @@ const HINT_REGISTRY = [
     id: 'assign-to-surveyor',
     screen: 'wilds',
     check: () => {
-      // Include birds in collection AND birds on perches (which are available for assignment)
+      // Include birds in collection with >0% energy AND birds on perches with >=50% energy
       const availableBirds = gameState.specimens.filter(bird => {
         const isOnPerch = bird.location.startsWith('perch_');
         const isInCollection = bird.location === 'collection';
-        return (isInCollection || isOnPerch) && bird.vitalityPercent > 0;
+
+        if (isInCollection) {
+          return bird.vitalityPercent > 0;
+        } else if (isOnPerch) {
+          return bird.vitalityPercent >= 50;
+        }
+        return false;
       });
       if (availableBirds.length === 0) return false;
 
@@ -52,11 +102,17 @@ const HINT_REGISTRY = [
     id: 'assign-to-forager',
     screen: 'wilds',
     check: () => {
-      // Include birds in collection AND birds on perches (which are available for assignment)
+      // Include birds in collection with >0% energy AND birds on perches with >=50% energy
       const availableBirds = gameState.specimens.filter(bird => {
         const isOnPerch = bird.location.startsWith('perch_');
         const isInCollection = bird.location === 'collection';
-        return (isInCollection || isOnPerch) && bird.vitalityPercent > 0;
+
+        if (isInCollection) {
+          return bird.vitalityPercent > 0;
+        } else if (isOnPerch) {
+          return bird.vitalityPercent >= 50;
+        }
+        return false;
       });
       if (availableBirds.length === 0) return false;
 
@@ -89,11 +145,17 @@ const HINT_REGISTRY = [
     id: 'need-birds-for-empty-slots',
     screen: 'wilds',
     check: () => {
-      // Include birds in collection AND birds on perches (which are available for assignment)
+      // Include birds in collection with >0% energy AND birds on perches with >=50% energy
       const availableBirds = gameState.specimens.filter(bird => {
         const isOnPerch = bird.location.startsWith('perch_');
         const isInCollection = bird.location === 'collection';
-        return (isInCollection || isOnPerch) && bird.vitalityPercent > 0;
+
+        if (isInCollection) {
+          return bird.vitalityPercent > 0;
+        } else if (isOnPerch) {
+          return bird.vitalityPercent >= 50;
+        }
+        return false;
       });
       if (availableBirds.length > 0) return false; // Already have birds with energy (covered by priority 1-2)
 
@@ -114,26 +176,41 @@ const HINT_REGISTRY = [
       return false;
     },
     apply: () => {
-      // Check if we have depleted birds that need rest instead of getting new birds
+      // Check if we have depleted birds in collection that need rest
       const depletedBirds = gameState.specimens.filter(bird =>
         bird.location === 'collection' && bird.vitalityPercent <= 0
       );
 
-      if (depletedBirds.length > 0) {
-        // Check if there's actually an available perch (unlocked and either empty or with bird at 100% energy)
-        const hasAvailablePerch = gameState.perches.some(perch => {
-          if (!perch.unlocked) return false;
-          if (!perch.birdId) return true; // Empty perch
+      // Check if we have birds on perches that could benefit from manual restore (< 50% energy)
+      const lowEnergyPerchedBirds = gameState.specimens.filter(bird => {
+        if (!bird.location.startsWith('perch_')) return false;
+        return bird.vitalityPercent < 50;
+      });
 
-          const perchedBird = getBirdById(perch.birdId);
-          return perchedBird && perchedBird.vitalityPercent >= 100; // Fully rested bird (can swap)
-        });
+      // Navigate to sanctuary if we have birds needing care (depleted or low energy on perches)
+      if (depletedBirds.length > 0 || lowEnergyPerchedBirds.length > 0) {
+        // For depleted birds, check if there's an available perch
+        if (depletedBirds.length > 0) {
+          const hasAvailablePerch = gameState.perches.some(perch => {
+            if (!perch.unlocked) return false;
+            if (!perch.birdId) return true; // Empty perch
 
-        // Only navigate to sanctuary if there's an available perch
-        if (hasAvailablePerch) {
-          return document.querySelector('.nav-button[data-screen="sanctuary"]');
+            const perchedBird = getBirdById(perch.birdId);
+            return perchedBird && perchedBird.vitalityPercent >= 100; // Fully rested bird (can swap)
+          });
+
+          // Only navigate if perch available
+          if (!hasAvailablePerch) {
+            // No perch available for depleted birds, but still check low energy perched birds
+            if (lowEnergyPerchedBirds.length === 0) {
+              // No help available in sanctuary, fall through to survey
+              return findBestSurveyTap();
+            }
+          }
         }
-        // If all perches are busy recharging, don't highlight sanctuary - fall through to survey
+
+        // Navigate to sanctuary (either have depleted birds with available perch, or low energy perched birds)
+        return document.querySelector('.nav-button[data-screen="sanctuary"]');
       }
 
       // Otherwise pulse survey to get more birds
@@ -195,9 +272,40 @@ const HINT_REGISTRY = [
 
   // ============ SANCTUARY SCREEN HINTS ============
 
-  // Priority 1: Groom birds on perches that aren't at 100% energy
+  // Priority 1a: Assign birds needing energy to empty perches
   {
-    id: 'groom-depleted-bird',
+    id: 'assign-depleted-to-empty-perch',
+    screen: 'sanctuary',
+    check: () => {
+      // Check if we have birds in collection needing energy
+      const depletedBirds = gameState.specimens.filter(bird =>
+        bird.location === 'collection' && bird.vitalityPercent < 100
+      );
+      if (depletedBirds.length === 0) return false;
+
+      // Check if we have an empty unlocked perch
+      for (const perch of gameState.perches) {
+        if (perch.unlocked && !perch.birdId) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      // Find first empty perch
+      for (const perch of gameState.perches) {
+        if (perch.unlocked && !perch.birdId) {
+          const assignBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-empty-label`);
+          if (assignBtn) return assignBtn;
+        }
+      }
+      return null;
+    }
+  },
+
+  // Priority 1b: Restore energy for birds on perches
+  {
+    id: 'restore-energy-perched',
     screen: 'sanctuary',
     check: () => {
       // Check if any perched bird has less than 100% vitality
@@ -216,8 +324,7 @@ const HINT_REGISTRY = [
         if (!perch.birdId) continue;
         const bird = getBirdById(perch.birdId);
         if (bird && bird.vitalityPercent < 100) {
-          const selector = `.perch-card[data-slot="${perch.slot}"] .perch-restore-btn`;
-          const groomBtn = document.querySelector(selector);
+          const groomBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-restore-btn`);
           if (groomBtn) return groomBtn;
         }
       }
@@ -225,61 +332,111 @@ const HINT_REGISTRY = [
     }
   },
 
-  // Priority 2: Swap out depleted birds - assign depleted bird to empty perch
+  // Priority 1c: Mature birds on perches that now have full energy
   {
-    id: 'assign-depleted-to-perch',
+    id: 'mature-perched-bird-with-energy',
     screen: 'sanctuary',
     check: () => {
-      // Check if we have depleted birds in collection
-      const depletedBirds = gameState.specimens.filter(bird =>
-        bird.location === 'collection' && bird.vitalityPercent < 100
-      );
-      if (depletedBirds.length === 0) return false;
-
-      // Check if we have a rested bird on a perch we could swap
+      // Check if any perched bird has 100% vitality but isn't mature
       for (const perch of gameState.perches) {
-        if (!perch.unlocked) continue;
-        if (!perch.birdId) return true; // Empty perch available
-
-        const perchedBird = getBirdById(perch.birdId);
-        if (perchedBird && perchedBird.vitalityPercent >= 100) {
-          return true; // Can swap this rested bird out
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.vitalityPercent >= 100 && !bird.isMature && gameState.seeds >= 100) {
+          return true;
         }
       }
       return false;
     },
     apply: () => {
-      // Find first perch that's either empty or has a fully rested bird
+      // Find first perch with fully rested but immature bird
       for (const perch of gameState.perches) {
-        if (!perch.unlocked) continue;
-
-        if (!perch.birdId) {
-          // Empty perch - highlight assign button
-          const assignBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-empty-label`);
-          if (assignBtn) return assignBtn;
-        } else {
-          const perchedBird = getBirdById(perch.birdId);
-          if (perchedBird && perchedBird.vitalityPercent >= 100) {
-            // Fully rested bird - highlight bird name to swap
-            const birdNameBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-bird-name`);
-            if (birdNameBtn) return birdNameBtn;
-          }
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.vitalityPercent >= 100 && !bird.isMature && gameState.seeds >= 100) {
+          const matureBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-mature-btn`);
+          if (matureBtn) return matureBtn;
         }
       }
       return null;
     }
   },
 
-  // Priority 3: Mature birds on perches
+  // Priority 1d: Replace birds that are fully rested and mature
+  {
+    id: 'replace-ready-bird',
+    screen: 'sanctuary',
+    check: () => {
+      // Check if we have birds needing care in collection
+      const birdsNeedingCare = gameState.specimens.filter(bird =>
+        bird.location === 'collection' && (bird.vitalityPercent < 100 || !bird.isMature)
+      );
+      if (birdsNeedingCare.length === 0) return false;
+
+      // Check if any perched bird is fully rested AND mature (ready to replace)
+      for (const perch of gameState.perches) {
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.vitalityPercent >= 100 && bird.isMature) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      // Find first perch with fully ready bird
+      for (const perch of gameState.perches) {
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.vitalityPercent >= 100 && bird.isMature) {
+          const birdNameBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-bird-name`);
+          if (birdNameBtn) return birdNameBtn;
+        }
+      }
+      return null;
+    }
+  },
+
+  // Priority 2a: Assign birds needing only maturity to empty perches
+  {
+    id: 'assign-immature-to-perch',
+    screen: 'sanctuary',
+    check: () => {
+      // Check if we have birds with full energy but needing maturity
+      const immatureBirds = gameState.specimens.filter(bird =>
+        bird.location === 'collection' && bird.vitalityPercent >= 100 && !bird.isMature
+      );
+      if (immatureBirds.length === 0) return false;
+
+      // Check if we have an empty unlocked perch
+      for (const perch of gameState.perches) {
+        if (perch.unlocked && !perch.birdId) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      // Find first empty perch
+      for (const perch of gameState.perches) {
+        if (perch.unlocked && !perch.birdId) {
+          const assignBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-empty-label`);
+          if (assignBtn) return assignBtn;
+        }
+      }
+      return null;
+    }
+  },
+
+  // Priority 2b: Mature birds on perches
   {
     id: 'mature-perched-bird',
     screen: 'sanctuary',
     check: () => {
-      // Check if any perched bird can be matured
+      // Check if any perched bird needs maturity and we have seeds
       for (const perch of gameState.perches) {
         if (!perch.birdId) continue;
         const bird = getBirdById(perch.birdId);
-        if (bird && !bird.isMature) {
+        if (bird && !bird.isMature && gameState.seeds >= 100) {
           return true;
         }
       }
@@ -290,7 +447,7 @@ const HINT_REGISTRY = [
       for (const perch of gameState.perches) {
         if (!perch.birdId) continue;
         const bird = getBirdById(perch.birdId);
-        if (bird && !bird.isMature) {
+        if (bird && !bird.isMature && gameState.seeds >= 100) {
           const matureBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-mature-btn`);
           if (matureBtn) return matureBtn;
         }
@@ -299,30 +456,97 @@ const HINT_REGISTRY = [
     }
   },
 
-  // Priority 4: Mature birds in collection
+  // Priority 2c: Replace mature birds when there are more birds needing maturity
   {
-    id: 'mature-collection-bird',
+    id: 'replace-mature-bird',
     screen: 'sanctuary',
     check: () => {
-      // Check if any collection bird can be matured and we have seeds
+      // Check if we have immature birds needing care in collection
       const immatureBirds = gameState.specimens.filter(bird =>
         bird.location === 'collection' && !bird.isMature
       );
-      return immatureBirds.length > 0 && gameState.seeds >= 100;
+      if (immatureBirds.length === 0) return false;
+
+      // Check if any perched bird is mature (ready to replace)
+      for (const perch of gameState.perches) {
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.isMature) {
+          return true;
+        }
+      }
+      return false;
     },
     apply: () => {
-      // Find first immature bird in collection view
-      const collectionSection = document.querySelector('.collection-section');
-      if (!collectionSection) return null;
+      // Find first perch with mature bird
+      for (const perch of gameState.perches) {
+        if (!perch.birdId) continue;
+        const bird = getBirdById(perch.birdId);
+        if (bird && bird.isMature) {
+          const birdNameBtn = document.querySelector(`.perch-card[data-slot="${perch.slot}"] .perch-bird-name`);
+          if (birdNameBtn) return birdNameBtn;
+        }
+      }
+      return null;
+    }
+  },
 
-      const matureBtn = collectionSection.querySelector('.collection-mature-btn');
-      return matureBtn;
+  // Priority 3: Navigate to Wilds if out of seeds or no birds need care
+  {
+    id: 'navigate-to-wilds-from-sanctuary',
+    screen: 'sanctuary',
+    check: () => {
+      // Suppress until hatchery is unlocked (avoid confusion with tutorial arrow)
+      if (!gameState.hatcheryUnlocked) return false;
+
+      // Check if we're out of seeds for maturity
+      const needsMaturity = gameState.specimens.some(bird => !bird.isMature);
+      if (needsMaturity && gameState.seeds < 100) {
+        return true;
+      }
+
+      // Check if no birds need care (all have 100% energy and are mature)
+      const birdsNeedingCare = gameState.specimens.filter(bird =>
+        bird.vitalityPercent < 100 || !bird.isMature
+      );
+      if (birdsNeedingCare.length === 0) {
+        return true;
+      }
+
+      return false;
+    },
+    apply: () => {
+      return document.querySelector('.nav-button[data-screen="wilds"]');
     }
   },
 
   // ============ HATCHERY SCREEN HINTS ============
 
-  // (Placeholder - will add hatchery hints later)
+  // Priority 1: Manual incubate bird at 99%
+  {
+    id: 'hatchery-incubate-ready',
+    screen: 'hatchery',
+    check: () => {
+      // Check if any breeding program is at 99%
+      for (const program of gameState.breedingPrograms) {
+        if (program.active && program.progress >= 99) {
+          return true;
+        }
+      }
+      return false;
+    },
+    apply: () => {
+      // Find first program at 99%
+      for (const program of gameState.breedingPrograms) {
+        if (program.active && program.progress >= 99) {
+          const incubateBtn = document.querySelector(`.breeding-program-slot[data-program-slot="${program.program}"] .incubate-btn`);
+          if (incubateBtn) return incubateBtn;
+        }
+      }
+      return null;
+    }
+  },
+
 ];
 
 // ========================================

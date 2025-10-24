@@ -639,6 +639,31 @@ button.danger {
   }
 }
 
+/* Toast Notifications */
+.toast-notification {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: rgba(0, 0, 0, 0.9);
+  color: var(--text-primary);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  z-index: 2000;
+  opacity: 0;
+  transition: all 0.3s ease;
+  max-width: 300px;
+  text-align: center;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.toast-notification.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .modal-content h3 {
   font-family: var(--font-header);
   font-size: 18px;
@@ -828,6 +853,7 @@ button.danger {
   height: 32px;
   flex-shrink: 0;
   pointer-events: none;
+  border-radius: 50%; /* Circular clipping */
 }
 
 .btn-content {
@@ -1380,6 +1406,7 @@ button.danger {
   height: 60px;
   object-fit: contain;
   pointer-events: none;
+  border-radius: 50%; /* Circular clipping */
 }
 
 /* Empty slot styling */
@@ -1475,79 +1502,112 @@ button.danger {
 /* === SANCTUARY (PERCHES & COLLECTION) === */
 .perches-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--space-md);
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: var(--space-md);
+  row-gap: var(--space-sm); /* Smaller gap between rows */
   margin: var(--space-lg) 0;
-  min-height: 500px;
+  position: relative; /* For pseudo-element positioning */
 }
 
-/* Top row: 2 perches centered - wider (30% more width) */
+/* Background image viewport - behind all perches */
+.perches-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('/assets/backgrounds/sanctuary-bg.png');
+  background-size: 130%; /* Scale to 150% */
+  background-position: center bottom; /* Center horizontally, align bottom */
+  background-repeat: no-repeat;
+  border-radius: 8px; /* Match perch card border radius */
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* White overlay to soften the background */
+.perches-grid::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.3); /* 30% white opacity */
+  border-radius: 8px; /* Match perch card border radius */
+  z-index: 1;
+  pointer-events: none; /* Allow clicks to pass through */
+}
+
+/* Top row: 1 full-width perch - content-sized */
 .perches-grid .perch-card:nth-child(1) {
-  grid-column: 1 / 4;
+  grid-column: 1 / 5;
 }
 
+/* Bottom row: 4 perches (each takes 1 column) */
 .perches-grid .perch-card:nth-child(2) {
-  grid-column: 4 / 7;
+  grid-column: 1 / 2;
 }
 
-/* Bottom row: 3 perches (each takes 2 columns) */
 .perches-grid .perch-card:nth-child(3) {
-  grid-column: 1 / 3;
+  grid-column: 2 / 3;
 }
 
 .perches-grid .perch-card:nth-child(4) {
-  grid-column: 3 / 5;
+  grid-column: 3 / 4;
 }
 
 .perches-grid .perch-card:nth-child(5) {
-  grid-column: 5 / 7;
+  grid-column: 4 / 5;
 }
 
-/* Top two perches - larger icons and rings (30% bigger) */
-.perches-grid .perch-card:nth-child(1) .perch-vitality-ring-wrapper,
-.perches-grid .perch-card:nth-child(2) .perch-vitality-ring-wrapper {
-  width: 117px;
-  height: 117px;
+/* Top perch - larger icons and rings */
+.perches-grid .perch-card:nth-child(1) .perch-vitality-ring-wrapper {
+  width: 120px;
+  height: 120px;
 }
 
-.perches-grid .perch-card:nth-child(1) .perch-bird-image,
-.perches-grid .perch-card:nth-child(2) .perch-bird-image {
-  max-width: 97.5px;
+.perches-grid .perch-card:nth-child(1) .perch-bird-image {
+  max-width: 100px;
 }
 
 .perches-grid .perch-card:nth-child(1) .perch-lock-icon,
-.perches-grid .perch-card:nth-child(1) .perch-empty-icon,
-.perches-grid .perch-card:nth-child(2) .perch-lock-icon,
-.perches-grid .perch-card:nth-child(2) .perch-empty-icon {
-  font-size: 83px;
+.perches-grid .perch-card:nth-child(1) .perch-empty-icon {
+  font-size: 80px;
 }
 
-/* Bottom three perches - reduce padding for compactness */
+/* Bottom four perches - reduce padding for compactness */
+.perches-grid .perch-card:nth-child(2) .perch-card-top,
 .perches-grid .perch-card:nth-child(3) .perch-card-top,
 .perches-grid .perch-card:nth-child(4) .perch-card-top,
 .perches-grid .perch-card:nth-child(5) .perch-card-top {
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
   min-height: auto;
 }
 
+.perches-grid .perch-card:nth-child(2) .perch-card-bottom,
 .perches-grid .perch-card:nth-child(3) .perch-card-bottom,
 .perches-grid .perch-card:nth-child(4) .perch-card-bottom,
 .perches-grid .perch-card:nth-child(5) .perch-card-bottom {
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
 }
 
+.perches-grid .perch-card:nth-child(2) .perch-bird-bonuses,
 .perches-grid .perch-card:nth-child(3) .perch-bird-bonuses,
 .perches-grid .perch-card:nth-child(4) .perch-bird-bonuses,
 .perches-grid .perch-card:nth-child(5) .perch-bird-bonuses {
   margin-bottom: 2px;
 }
 
+.perches-grid .perch-card:nth-child(2) .perch-bird-traits,
 .perches-grid .perch-card:nth-child(3) .perch-bird-traits,
 .perches-grid .perch-card:nth-child(4) .perch-bird-traits,
 .perches-grid .perch-card:nth-child(5) .perch-bird-traits {
   margin-bottom: 2px;
 }
 
+.perches-grid .perch-card:nth-child(2) .perch-card-actions,
 .perches-grid .perch-card:nth-child(3) .perch-card-actions,
 .perches-grid .perch-card:nth-child(4) .perch-card-actions,
 .perches-grid .perch-card:nth-child(5) .perch-card-actions {
@@ -1557,51 +1617,52 @@ button.danger {
 .perch-card {
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-secondary);
-  border: 2px solid var(--border);
+  background-color: transparent; /* Transparent to show background image */
+  border: 2px solid transparent; /* Transparent border */
   border-radius: 8px;
   overflow: hidden;
   transition: all var(--transition-fast);
   cursor: pointer;
   align-self: start;
+  position: relative; /* For z-index stacking */
+  z-index: 2; /* Render above background and overlay */
 }
 
 .perch-card.locked {
   opacity: 0.6;
-  border-style: dashed;
+  border-style: solid; /* Changed from dashed to solid, but it's transparent anyway */
 }
 
 .perch-card.locked:hover {
-  border-color: var(--border-light);
-  background-color: rgba(255, 255, 255, 0.02);
+  border-color: transparent; /* Keep transparent on hover */
+  background-color: transparent; /* Keep transparent on hover */
 }
 
 .perch-card.empty {
-  border-style: dashed;
-  border-color: var(--border-light);
+  border-style: solid; /* Changed from dashed */
+  border-color: transparent;
 }
 
 .perch-card.empty:hover {
-  border-color: var(--info);
-  background-color: rgba(33, 150, 243, 0.05);
+  border-color: transparent; /* Remove blue border on hover */
+  background-color: transparent; /* Remove blue background on hover */
 }
 
 .perch-card.occupied {
-  border-color: var(--success);
+  border-color: transparent; /* Remove green border */
   cursor: default;
 }
 
-/* Perch Card Top (Image Area) - Fixed to 1/3 height */
+/* Perch Card Top (Image Area) - Auto-sized to content */
 .perch-card-top {
-  flex: 0 0 33.333%;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: var(--space-md);
-  background-color: var(--bg-accent);
+  background-color: transparent; /* Transparent to show background image */
   position: relative;
-  min-height: 135px;
 }
 
 .perch-lock-icon,
@@ -1655,18 +1716,17 @@ button.danger {
   object-fit: contain;
   position: relative;
   z-index: 1;
+  border-radius: 50%; /* Circular clipping */
 }
 
-/* Perch Card Bottom (Info Area) - Fixed to 2/3 height with scroll */
+/* Perch Card Bottom (Info Area) - Auto-sized to content */
 .perch-card-bottom {
-  flex: 0 0 66.666%;
-  padding: var(--space-md);
+  flex: 0 0 auto;
+  padding: var(--space-sm);
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   text-align: center;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .perch-unlock-cost {
@@ -1769,6 +1829,99 @@ button.danger {
   display: none;
 }
 
+/* Inactive Perch Cards (bottom 4 perches - simplified view) */
+.perch-card-inactive {
+  cursor: pointer;
+  aspect-ratio: 0.65; /* Taller rectangle for icon + 2-line name */
+}
+
+.perch-card-inactive.occupied {
+  cursor: pointer; /* Override default - clicking swaps to active */
+}
+
+.perch-simple-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* Bird stays at top, button moves down when 2 lines */
+  padding: var(--space-sm);
+  padding-top: var(--space-md); /* Add top padding for better spacing */
+  height: 100%;
+  gap: var(--space-xs);
+}
+
+/* Locked inactive perch */
+.perch-card-inactive.locked .perch-simple-content {
+  padding: var(--space-sm);
+}
+
+.perch-card-inactive.locked .perch-lock-icon {
+  font-size: 40px;
+}
+
+.perch-card-inactive.locked .perch-unlock-cost {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Empty inactive perch */
+.perch-card-inactive.empty .perch-empty-icon {
+  font-size: 40px;
+}
+
+/* Occupied inactive perch - just portrait and rings */
+.perch-card-inactive.occupied .perch-vitality-ring-wrapper {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.perch-card-inactive.occupied .perch-bird-image {
+  max-width: 50px;
+}
+
+/* Bird name button for inactive occupied perches - styled like perch 1 name */
+.perch-inactive-name-btn {
+  font-size: 10px; /* 2pt smaller than perch 1 */
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip; /* No ellipsis - just cut off */
+  display: flex; /* Changed from -webkit-box for better control */
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 3px 12px 5px 12px; /* Reduced top, increased bottom for vertical centering */
+  margin-top: auto; /* Push to bottom of container */
+  background: var(--bg-accent); /* Non-transparent background like perch 1 */
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: default; /* Not interactive */
+  transition: none; /* No transition effects */
+  pointer-events: none; /* Disable clicking on the button itself (parent handles click) */
+}
+
+/* Hover states for inactive perches */
+.perch-card-inactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.perch-card-inactive.empty:hover {
+  border-color: var(--info);
+  background-color: rgba(33, 150, 243, 0.08);
+}
+
+.perch-card-inactive.occupied:hover {
+  border-color: var(--success);
+  background-color: rgba(102, 187, 106, 0.08);
+}
+
 /* Collection Items */
 .collection-item {
   display: flex;
@@ -1835,6 +1988,7 @@ button.danger {
   width: 52px;
   height: 52px;
   object-fit: contain;
+  border-radius: 50%; /* Circular clipping */
 }
 
 .collection-bird-icon.greyed {
@@ -2365,6 +2519,7 @@ button.danger {
   object-fit: contain;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
   animation: celebrationBounce 0.6s ease-in-out infinite alternate;
+  border-radius: 50%; /* Circular clipping */
 }
 
 @keyframes celebrationBounce {
@@ -2582,7 +2737,7 @@ button.danger {
 }
 
 .biome-card {
-  background: var(--bg-secondary);
+  background: transparent; /* Transparent to show background images */
   border: 2px solid var(--border);
   border-radius: 12px;
   padding: var(--space-md);
@@ -2592,8 +2747,58 @@ button.danger {
 }
 
 .biome-card.locked {
-  opacity: 0.6;
   border-color: var(--text-muted);
+  /* Removed opacity: 0.6 - content should be fully opaque for readability */
+}
+
+/* Locked biome backgrounds - full card coverage */
+.biome-card.locked::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-size: 180%; /* Increased from 130% for better coverage */
+  background-position: center center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.biome-card.locked::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.15); /* 15% white overlay - reduced from 30% */
+  border-radius: 12px;
+  z-index: 0; /* Changed from z-index: 1 to stay below content */
+  pointer-events: none;
+}
+
+/* Biome-specific backgrounds for locked cards */
+.biome-card.locked[data-biome-id="forest"]::before {
+  background-image: url('/assets/backgrounds/forest-bg.png');
+}
+
+.biome-card.locked[data-biome-id="mountain"]::before {
+  background-image: url('/assets/backgrounds/mountain-bg.png');
+}
+
+.biome-card.locked[data-biome-id="coastal"]::before {
+  background-image: url('/assets/backgrounds/coastal-bg.png');
+}
+
+.biome-card.locked[data-biome-id="arid"]::before {
+  background-image: url('/assets/backgrounds/arid-bg.png');
+}
+
+.biome-card.locked[data-biome-id="tundra"]::before {
+  background-image: url('/assets/backgrounds/tundra-bg.png');
 }
 
 .biome-card.locked .biome-locked-content {
@@ -2601,6 +2806,8 @@ button.danger {
   flex-direction: row;
   align-items: stretch;
   min-height: 150px;
+  position: relative;
+  z-index: 2; /* Render above background */
 }
 
 .biome-locked-left {
@@ -2609,6 +2816,7 @@ button.danger {
   align-items: center;
   justify-content: center;
   border-right: 2px solid var(--border);
+  background: rgba(0, 0, 0, 0.5); /* Dark semi-transparent background for readability */
 }
 
 .biome-locked-right {
@@ -2619,6 +2827,7 @@ button.danger {
   justify-content: center;
   padding: var(--space-md);
   gap: var(--space-sm);
+  background: rgba(0, 0, 0, 0.5); /* Dark semi-transparent background for readability */
 }
 
 .biome-card.locked .lock-icon {
@@ -2655,6 +2864,78 @@ button.danger {
   background: var(--rarity-3);
 }
 
+/* Unlocked biome backgrounds - header + foragers + fade to survey divider */
+/* Use forager-row as anchor, extend background upward to cover card top and down to divider */
+.biome-card.unlocked .forager-row::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-md)); /* Extend up to card top (padding) */
+  left: calc(-1 * var(--space-md));
+  right: calc(-1 * var(--space-md));
+  bottom: calc(-1 * var(--space-md)); /* Extend down past forager row to divider */
+  background-size: 130%;
+  background-position: center center;
+  background-repeat: no-repeat;
+  border-radius: 12px 12px 0 0;
+  z-index: -2;
+  /* Add gradient mask to fade out at bottom */
+  mask-image: linear-gradient(to bottom,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,0) 100%
+  );
+  -webkit-mask-image: linear-gradient(to bottom,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,0) 100%
+  );
+}
+
+.biome-card.unlocked .forager-row::after {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-md));
+  left: calc(-1 * var(--space-md));
+  right: calc(-1 * var(--space-md));
+  bottom: calc(-1 * var(--space-md)); /* Match background extension */
+  background: rgba(255, 255, 255, 0.15); /* 15% white overlay - reduced from 30% */
+  border-radius: 12px 12px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Same gradient mask for white overlay */
+  mask-image: linear-gradient(to bottom,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,0) 100%
+  );
+  -webkit-mask-image: linear-gradient(to bottom,
+    rgba(0,0,0,1) 0%,
+    rgba(0,0,0,1) 85%,
+    rgba(0,0,0,0) 100%
+  );
+}
+
+/* Biome-specific backgrounds for unlocked cards */
+.biome-card.unlocked[data-biome-id="forest"] .forager-row::before {
+  background-image: url('/assets/backgrounds/forest-bg.png');
+}
+
+.biome-card.unlocked[data-biome-id="mountain"] .forager-row::before {
+  background-image: url('/assets/backgrounds/mountain-bg.png');
+}
+
+.biome-card.unlocked[data-biome-id="coastal"] .forager-row::before {
+  background-image: url('/assets/backgrounds/coastal-bg.png');
+}
+
+.biome-card.unlocked[data-biome-id="arid"] .forager-row::before {
+  background-image: url('/assets/backgrounds/arid-bg.png');
+}
+
+.biome-card.unlocked[data-biome-id="tundra"] .forager-row::before {
+  background-image: url('/assets/backgrounds/tundra-bg.png');
+}
+
 .biome-header {
   display: flex;
   justify-content: space-between;
@@ -2662,6 +2943,8 @@ button.danger {
   margin-bottom: var(--space-md);
   border-bottom: 1px solid var(--border);
   padding-bottom: var(--space-sm);
+  position: relative;
+  z-index: 2;
 }
 
 .biome-header h3 {
@@ -2680,12 +2963,16 @@ button.danger {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  position: relative;
+  z-index: 2;
 }
 
 .forager-row {
   display: flex;
   gap: var(--space-sm);
   justify-content: space-around;
+  position: relative; /* For pseudo-element positioning */
+  z-index: 2;
 }
 
 .survey-row {
@@ -2810,7 +3097,18 @@ button.danger {
 }
 
 .bird-slot.locked {
-  opacity: 0.5;
+  /* Removed opacity: 0.5 - using background instead for readability */
+}
+
+.bird-slot.locked .forager-icon-wrapper {
+  background: rgba(0, 0, 0, 0.6); /* Dark semi-transparent background */
+  border-radius: 50%;
+}
+
+.bird-slot.locked .slot-label {
+  background: rgba(0, 0, 0, 0.6); /* Dark semi-transparent background */
+  padding: 2px 8px;
+  border-radius: 8px;
 }
 
 .slot-circle {
@@ -2904,6 +3202,7 @@ button.danger {
   object-fit: contain;
   position: relative;
   z-index: 1;
+  border-radius: 50%; /* Circular clipping */
 }
 
 .surveyor-icon-wrapper .surveyor-empty-icon {
@@ -3108,6 +3407,7 @@ button.danger {
   width: 64px;
   height: 64px;
   object-fit: contain;
+  border-radius: 50%; /* Circular clipping */
 }
 
 .bird-details {

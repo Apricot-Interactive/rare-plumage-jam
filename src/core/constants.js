@@ -78,11 +78,15 @@ export const ASSISTANT_TAP_RATE = {
 export const SURVEY_PROTECTION_THRESHOLD = 100; // Assistants pause when seeds < this
 
 // === BREEDING SYSTEM ===
+// Breeding duration in minutes (scales with energy capacity)
+// Energy capacity: 120s (2m), 600s (10m), 1800s (30m), 7200s (2h), 28800s (8h)
+// Breeding takes same time as energy capacity
 export const BREEDING_DURATION = {
-  2: 1,      // ⭐⭐ 1 minute
-  3: 10,     // ⭐⭐⭐ 10 minutes
-  4: 60,     // ⭐⭐⭐⭐ 1 hour
-  5: 240     // ⭐⭐⭐⭐⭐ 4 hours
+  1: 2,      // ⭐ 2 minutes (120s like energy)
+  2: 10,     // ⭐⭐ 10 minutes (600s like energy)
+  3: 30,     // ⭐⭐⭐ 30 minutes (1800s like energy)
+  4: 120,    // ⭐⭐⭐⭐ 2 hours (7200s like energy)
+  5: 480     // ⭐⭐⭐⭐⭐ 8 hours (28800s like energy)
 };
 
 // Distinction inheritance probabilities
@@ -100,6 +104,20 @@ export const TRAIT_COUNT = {
   4: 3,  // ⭐⭐⭐⭐ Epic: 3 traits
   5: 3   // ⭐⭐⭐⭐⭐ Legendary: 3 traits
 };
+
+// Manual incubation progress per tap (percentage points) by offspring distinction
+// Balanced for meaningful engagement: lower stars = fewer taps, higher stars = more taps
+// From 99% to 100%, player needs to tap to complete hatching
+export const INCUBATION_TAP_PROGRESS = {
+  1: 10.0,   // ⭐ Common: 10% per tap (instant completion from 99%)
+  2: 5.0,    // ⭐⭐ Uncommon: 5% per tap (instant completion from 99%)
+  3: 1.0,    // ⭐⭐⭐ Rare: 1% per tap (1 tap from 99%)
+  4: 0.25,   // ⭐⭐⭐⭐ Epic: 0.25% per tap (4 taps from 99%)
+  5: 0.05    // ⭐⭐⭐⭐⭐ Legendary: 0.05% per tap (20 taps from 99%)
+};
+
+// Maximum birds allowed per rarity level
+export const MAX_BIRDS_PER_RARITY = 8;
 
 // === VITALITY SYSTEM ===
 // Energy drain: 1 energy per second while foraging/surveying

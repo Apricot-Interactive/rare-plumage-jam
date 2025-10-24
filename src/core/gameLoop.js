@@ -3,7 +3,7 @@ import { GAME_CONFIG } from './constants.js';
 import { gameState, addSeeds } from './state.js';
 import { calculateForagerIncome, updateForagerVitality } from '../systems/foragers.js';
 import { updateSurveyProgress } from '../systems/surveys.js';
-import { updateGrooming } from '../systems/sanctuary.js';
+import { updateGrooming, autoAssignDepletedBirds } from '../systems/sanctuary.js';
 import { updateBreedingProgress } from '../systems/breeding.js';
 import { updateForagerVitalityUI, updateSurveyProgressUI, showForagerIncomeFloatingText, checkWildsHints } from '../ui/wilds.js';
 import { updatePerchCooldowns, updatePerchVitalityBars } from '../ui/sanctuary.js';
@@ -16,8 +16,10 @@ let gameLoopId = null;
 let uiLoopId = null;
 let lastFloatingTextTime = Date.now();
 let lastHintCheckTime = Date.now();
+let lastAutoAssignCheckTime = Date.now();
 const FLOATING_TEXT_INTERVAL = 1000; // Show floating text every 1 second
 const HINT_CHECK_INTERVAL = 2000; // Re-evaluate hints every 2 seconds
+const AUTO_ASSIGN_CHECK_INTERVAL = 3000; // Check for auto-assign every 3 seconds
 
 export function startGameLoop() {
   if (gameLoopId) return; // Already running
@@ -65,6 +67,12 @@ export function startUILoop() {
     if (now - lastHintCheckTime >= HINT_CHECK_INTERVAL) {
       reevaluateCurrentScreenHints();
       lastHintCheckTime = now;
+    }
+
+    // Auto-assign depleted birds to empty perches every 3 seconds
+    if (now - lastAutoAssignCheckTime >= AUTO_ASSIGN_CHECK_INTERVAL) {
+      autoAssignDepletedBirds();
+      lastAutoAssignCheckTime = now;
     }
 
     // Show floating text for forager income every second

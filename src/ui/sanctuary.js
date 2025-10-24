@@ -6,6 +6,7 @@ import { updateWildsUI } from './wilds.js';
 import { formatCompact } from '../utils/numbers.js';
 import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
 import { isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from '../systems/tutorial.js';
+import { getBirdSpritePath } from '../utils/sprites.js';
 
 export function initSanctuaryUI() {
   hideHeadersDuringTutorial();
@@ -106,11 +107,23 @@ export function renderPerches() {
   const tutorialStep = getCurrentTutorialStep();
   const showOnlyFirstPerch = tutorialActive && tutorialStep === TUTORIAL_STEPS.GROOMING;
 
-  gameState.perches.forEach(perch => {
+  // Render active perch first (top position)
+  const activePerch = gameState.perches[gameState.activePerchIndex];
+  if (activePerch) {
+    const activePerchEl = createActivePerchSlot(activePerch);
+    container.appendChild(activePerchEl);
+  }
+
+  // Then render the other 4 perches as inactive (bottom row)
+  gameState.perches.forEach((perch, index) => {
     if (showOnlyFirstPerch && perch.slot !== 0) {
       return; // Skip all perches except slot 0 during grooming tutorial
     }
-    const perchEl = createPerchSlot(perch);
+
+    // Skip the active perch (already rendered above)
+    if (index === gameState.activePerchIndex) return;
+
+    const perchEl = createInactivePerchSlot(perch);
     container.appendChild(perchEl);
   });
 }
@@ -133,9 +146,10 @@ function getBirdBonuses(bird) {
   return bonuses;
 }
 
-function createPerchSlot(perch) {
+// Create ACTIVE perch slot (full detail with buttons)
+function createActivePerchSlot(perch) {
   const wrapper = document.createElement('div');
-  wrapper.className = 'perch-card';
+  wrapper.className = 'perch-card perch-card-active';
   wrapper.dataset.slot = perch.slot;
 
   const bird = perch.birdId ? getBirdById(perch.birdId) : null;
@@ -208,7 +222,7 @@ function createPerchSlot(perch) {
             <circle class="maturity-ring-fill" cx="50" cy="50" r="38"
                     style="stroke-dashoffset: ${maturityStrokeOffset}" />
           </svg>
-          <img src="/assets/birds/bird-${bird.distinction}star.png" alt="${bird.speciesName}" class="perch-bird-image" />
+          <img src="${getBirdSpritePath(bird)}" alt="${bird.speciesName}" class="perch-bird-image" />
         </div>
       </div>
       <div class="perch-card-bottom">
@@ -259,6 +273,93 @@ function createPerchSlot(perch) {
   return wrapper;
 }
 
+// Create INACTIVE perch slot (simplified - portrait + ring only, or nest/lock icon)
+function createInactivePerchSlot(perch) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'perch-card perch-card-inactive';
+  wrapper.dataset.slot = perch.slot;
+
+  const bird = perch.birdId ? getBirdById(perch.birdId) : null;
+
+  if (!perch.unlocked) {
+    // Locked perch - shows lock icon and unlock cost
+    wrapper.classList.add('locked');
+    wrapper.innerHTML = `
+      <div class="perch-simple-content">
+        <div class="perch-lock-icon">🔒</div>
+        <div class="perch-unlock-cost">${perch.unlockCost.toLocaleString()} Seeds</div>
+      </div>
+    `;
+
+    wrapper.addEventListener('click', () => {
+      if (unlockPerchSlot(perch.slot)) {
+        updateSanctuaryUI();
+      }
+    });
+  } else if (!bird) {
+    // Empty perch - shows nest icon
+    wrapper.classList.add('empty');
+    wrapper.innerHTML = `
+      <div class="perch-simple-content">
+        <div class="perch-empty-icon">🪹</div>
+      </div>
+    `;
+
+    wrapper.addEventListener('click', () => {
+      swapToActivePosition(perch.slot);
+    });
+  } else {
+    // Occupied perch - shows bird portrait and energy ring only
+    wrapper.classList.add('occupied');
+
+    const vitalityStrokeOffset = 264 - (264 * bird.vitalityPercent / 100);
+    const maturityPercent = bird.maturityProgress || 0;
+    const maturityStrokeOffset = 239 - (239 * maturityPercent / 100);
+
+    wrapper.innerHTML = `
+      <div class="perch-simple-content">
+        <div class="perch-vitality-ring-wrapper">
+          <svg class="bird-rings" viewBox="0 0 100 100">
+            <!-- Frame Ring (outermost) -->
+            <circle class="frame-ring" cx="50" cy="50" r="46" />
+            <!-- Vitality Ring (middle, green) -->
+            <circle class="vitality-ring-bg" cx="50" cy="50" r="42" />
+            <circle class="vitality-ring-fill" cx="50" cy="50" r="42"
+                    style="stroke-dashoffset: ${vitalityStrokeOffset}" />
+            <!-- Maturity Ring (innermost, blue) -->
+            <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
+            <circle class="maturity-ring-fill" cx="50" cy="50" r="38"
+                    style="stroke-dashoffset: ${maturityStrokeOffset}" />
+          </svg>
+          <img src="${getBirdSpritePath(bird)}" alt="${bird.speciesName}" class="perch-bird-image" />
+        </div>
+        <button class="perch-inactive-name-btn">${bird.customDesignation || bird.speciesName}</button>
+      </div>
+    `;
+
+    wrapper.addEventListener('click', () => {
+      swapToActivePosition(perch.slot);
+    });
+  }
+
+  return wrapper;
+}
+
+// Swap a perch into the active (top) position
+function swapToActivePosition(slotIndex) {
+  if (!gameState) return;
+
+  const previousActiveIndex = gameState.activePerchIndex;
+
+  // Update active perch index
+  gameState.activePerchIndex = slotIndex;
+
+  // Re-render perches to show new layout
+  updateSanctuaryUI();
+
+  console.log(`Swapped perch ${slotIndex} to active position (was ${previousActiveIndex})`);
+}
+
 function showBirdSelector(slot) {
   if (!gameState) return;
 
@@ -266,21 +367,24 @@ function showBirdSelector(slot) {
   const currentBird = perch?.birdId ? getBirdById(perch.birdId) : null;
 
   // Get ALL birds and categorize them (excluding the current bird in this slot)
-  // Birds on OTHER perches are considered available (not "in use")
+  // Only birds in collection are available (birds on other perches are considered assigned)
   const allBirds = gameState.specimens
     .filter(bird => bird.id !== currentBird?.id) // Don't show current bird in the list
     .map(bird => {
       const isOnPerch = bird.location.startsWith('perch_');
       const isInCollection = bird.location === 'collection';
-      const isAvailableLocation = isInCollection || isOnPerch;
+      const isAvailableLocation = isInCollection; // Only collection birds are available
 
       const isAvailable = isAvailableLocation && bird.vitalityPercent > 0;
       const needsRest = isAvailableLocation && bird.vitalityPercent <= 0;
-      const isAssigned = !isAvailableLocation;
+      const isAssigned = !isAvailableLocation || isOnPerch; // Birds on perches or other locations are assigned
       let locationLabel = '';
 
       if (isAssigned) {
-        if (bird.location.startsWith('forager_')) {
+        if (bird.location.startsWith('perch_')) {
+          const perchSlot = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Perch ${perchSlot + 1}`;
+        } else if (bird.location.startsWith('forager_')) {
           const parts = bird.location.split('_');
           const biomeId = parts[1];
           const slotIndex = parts[2];
@@ -289,7 +393,10 @@ function showBirdSelector(slot) {
         } else if (bird.location.startsWith('surveyor_')) {
           const biomeId = bird.location.split('_')[1];
           const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
-          locationLabel = `${biomeName} Surveyor`;
+          locationLabel = `${biomeName} Survey`;
+        } else if (bird.location.startsWith('breeding_')) {
+          const program = parseInt(bird.location.split('_')[1]);
+          locationLabel = `Breeding Program ${program + 1}`;
         }
       }
 
@@ -335,7 +442,7 @@ function showBirdSelector(slot) {
               <!-- Maturity Ring -->
               <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
             </svg>
-            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+            <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon greyed" />
           </div>
           <span class="btn-content">
             <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
@@ -370,7 +477,7 @@ function showBirdSelector(slot) {
               <circle class="maturity-ring-fill" cx="50" cy="50" r="25"
                       style="stroke-dashoffset: ${maturityStrokeOffset}" />
             </svg>
-            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon" />
+            <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon" />
           </div>
           <span class="btn-content">
             <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
@@ -404,7 +511,7 @@ function showBirdSelector(slot) {
               <circle class="maturity-ring-fill greyed" cx="50" cy="50" r="25"
                       style="stroke-dashoffset: ${maturityStrokeOffset}" />
             </svg>
-            <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon greyed" />
+            <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon greyed" />
           </div>
           <span class="btn-content">
             <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
@@ -604,7 +711,7 @@ function createCollectionItem(bird) {
           <circle class="maturity-ring-fill ${!isAvailable ? 'greyed' : ''}" cx="50" cy="50" r="38"
                   style="stroke-dashoffset: ${maturityStrokeOffset}" />
         </svg>
-        <img src="/assets/birds/bird-${bird.distinction}star.png" class="collection-bird-icon ${!isAvailable ? 'greyed' : ''}" />
+        <img src="${getBirdSpritePath(bird)}" class="collection-bird-icon ${!isAvailable ? 'greyed' : ''}" />
       </div>
       <div class="collection-bird-details">
         <div class="collection-bird-name">${bird.customDesignation || bird.speciesName}</div>

@@ -6,6 +6,7 @@ import { canPrestige, performPrestige, getPrestigeWarningMessage, PRESTIGE_COST 
 import { RARITY, FORAGER_INCOME, TRAITS, ASSISTANT_TAP_RATE, UNLOCK_COSTS, SURVEY_COSTS, FORAGER_BASE_RATES, ENERGY_CAPACITY } from '../core/constants.js';
 import { updateSanctuaryUI } from './sanctuary.js';
 import { showHint, clearAllHints, reevaluateCurrentScreenHints } from '../systems/hints.js';
+import { getBirdSpritePath } from '../utils/sprites.js';
 import {
   isTutorialActive,
   getCurrentTutorialStep,
@@ -27,7 +28,7 @@ export function showSurveyCelebration(newBird, biomeId) {
     <div class="celebration-content biome-content">
       <div class="celebration-header">🎉 New Discovery!</div>
       <div class="bird-discovery-info">
-        <img src="/assets/birds/bird-${newBird.distinction}star.png" class="celebration-bird-img-small" />
+        <img src="${getBirdSpritePath(newBird)}" class="celebration-bird-img-small" />
         <div class="bird-details">
           <div class="bird-name">${newBird.speciesName}</div>
           <div class="bird-rarity">${RARITY[newBird.distinction]?.stars || ''}</div>
@@ -42,6 +43,7 @@ export function showSurveyCelebration(newBird, biomeId) {
 
   let fadeTimeout;
   let isFading = false;
+  const createdAt = Date.now();
 
   // Function to fade out the overlay
   const fadeOut = () => {
@@ -56,8 +58,12 @@ export function showSurveyCelebration(newBird, biomeId) {
     }, 1000);
   };
 
-  // Click to dismiss
-  overlay.addEventListener('click', fadeOut);
+  // Click to dismiss (but ignore taps in first 500ms to prevent accidental dismissal)
+  overlay.addEventListener('click', () => {
+    const elapsed = Date.now() - createdAt;
+    if (elapsed < 500) return; // Ignore early taps
+    fadeOut();
+  });
 
   // Auto-fade after 4 seconds
   fadeTimeout = setTimeout(fadeOut, 4000);
@@ -390,7 +396,7 @@ function createForagerSlotHTML(biome, slotIndex) {
           <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
           <circle class="maturity-ring-fill" cx="50" cy="50" r="25" style="stroke-dashoffset: ${maturityStrokeOffset}" />
         </svg>
-        <img src="/assets/birds/bird-${bird.distinction}star.png" alt="${bird.speciesName}" class="forager-bird-icon" />
+        <img src="${getBirdSpritePath(bird)}" alt="${bird.speciesName}" class="forager-bird-icon" />
       </div>
       <div class="slot-label">${bird.customDesignation || bird.speciesName}</div>
     </div>
@@ -421,7 +427,7 @@ function createSurveySlotHTML(biome) {
           <circle class="maturity-ring-bg" cx="50" cy="50" r="38" />
           <circle class="maturity-ring-fill" cx="50" cy="50" r="38" style="stroke-dashoffset: ${maturityStrokeOffset}" />
         </svg>
-        <img src="/assets/birds/bird-${surveyor.distinction}star.png" alt="${surveyor.speciesName}" class="surveyor-bird-icon" />
+        <img src="${getBirdSpritePath(surveyor)}" alt="${surveyor.speciesName}" class="surveyor-bird-icon" />
       </div>
     `;
   } else {
@@ -978,7 +984,7 @@ function createBirdSelectButton(bird, isUnavailable, locationLabel = '', isSurve
           <circle class="maturity-ring-bg" cx="50" cy="50" r="25" />
           <circle class="maturity-ring-fill ${greyedClass}" cx="50" cy="50" r="25" style="stroke-dashoffset: ${maturityStrokeOffset}" />
         </svg>
-        <img src="/assets/birds/bird-${bird.distinction}star.png" class="btn-bird-icon ${greyedClass}" />
+        <img src="${getBirdSpritePath(bird)}" class="btn-bird-icon ${greyedClass}" />
       </div>
       <span class="btn-content">
         <span class="btn-title">${bird.customDesignation || bird.speciesName}</span>
@@ -1003,12 +1009,17 @@ function getBirdLocationLabel(bird) {
   if (bird.location.startsWith('surveyor_')) {
     const biomeId = bird.location.split('_')[1];
     const biomeName = biomeId.charAt(0).toUpperCase() + biomeId.slice(1);
-    return `${biomeName} Surveyor`;
+    return `${biomeName} Survey`;
   }
 
   if (bird.location.startsWith('perch_')) {
     const slot = parseInt(bird.location.split('_')[1]);
     return `Perch ${slot + 1}`;
+  }
+
+  if (bird.location.startsWith('breeding_')) {
+    const program = parseInt(bird.location.split('_')[1]);
+    return `Breeding Program ${program + 1}`;
   }
 
   return 'Unknown';
@@ -1148,6 +1159,7 @@ function showExhaustedNotification(bird, activityText, biomeId) {
 
   let fadeTimeout;
   let isFading = false;
+  const createdAt = Date.now();
 
   // Function to fade out the notification
   const fadeOut = () => {
@@ -1161,8 +1173,12 @@ function showExhaustedNotification(bird, activityText, biomeId) {
     }, 1000);
   };
 
-  // Click to dismiss
-  notification.addEventListener('click', fadeOut);
+  // Click to dismiss (but ignore taps in first 500ms to prevent accidental dismissal)
+  notification.addEventListener('click', () => {
+    const elapsed = Date.now() - createdAt;
+    if (elapsed < 500) return; // Ignore early taps
+    fadeOut();
+  });
 
   // Auto-fade after 4 seconds
   fadeTimeout = setTimeout(fadeOut, 4000);

@@ -213,7 +213,7 @@ function showTutorialStep(step) {
 
     case TUTORIAL_STEPS.COMPLETION:
       showTutorialModal(
-        'OK that\'s everything from the manual. Remember - 5 habitats. 5 artifacts. 5 legendary guardians. I can do this. I can save them. I can save us.',
+        'OK that\'s it from the manual. The artifacts - they\'re real. I need to start exploring the mountains.',
         'italic',
         () => {
           hideTutorialModal();
@@ -636,10 +636,11 @@ export function handleBreedingComplete() {
   if (!isTutorialActive()) return;
 
   if (gameState.tutorialStep === TUTORIAL_STEPS.BREEDING_TUTORIAL) {
-    // Advance to completion (will show modal)
+    // Wait for celebration to finish (4s display + 0.5s fade = 4.5s total)
+    // Then show tutorial completion modal
     setTimeout(() => {
       advanceTutorial(TUTORIAL_STEPS.COMPLETION);
-    }, 500);
+    }, 4600);
   }
 }
 
@@ -658,10 +659,18 @@ export function checkBiomeUnlockMilestone(biomeId, biomeName) {
 
   console.log(`🎉 MILESTONE: ${biomeName} biome unlocked!`);
 
+  // Custom message for Mountain biome, generic for others
+  let message;
+  if (biomeId === 'mountain') {
+    message = 'I should be able to find even more rare birds in here.';
+  } else {
+    message = `Congratulations on unlocking the ${biomeName} biome!`;
+  }
+
   // Show celebration modal
   showTutorialModal(
-    `Congratulations on unlocking the ${biomeName} biome!`,
-    'bold',
+    message,
+    biomeId === 'mountain' ? 'italic' : 'bold',
     () => hideTutorialModal()
   );
 }
@@ -683,9 +692,25 @@ export function checkStarRarityMilestone(stars) {
   // Delay showing modal so celebration toast appears first
   setTimeout(() => {
     const starEmoji = '⭐'.repeat(stars);
+
+    // Custom messages for specific star rarities
+    let message;
+    let style = 'bold';
+
+    if (stars === 2) {
+      message = 'A 2-star bird - this one looks ready to explore the mountains.';
+      style = 'italic';
+    } else if (stars === 3) {
+      message = 'A 3-star, excellent. I\'m even closer now to the 5-star birds of the Tundra that can recover the ancient artifacts.';
+      style = 'italic';
+    } else {
+      message = `Congratulations on discovering a ${stars}-star bird! ${starEmoji}`;
+      style = 'bold';
+    }
+
     showTutorialModal(
-      `Congratulations on discovering a ${stars}-star bird! ${starEmoji}`,
-      'bold',
+      message,
+      style,
       () => hideTutorialModal()
     );
   }, 1500); // 1.5 second delay to let toast show first

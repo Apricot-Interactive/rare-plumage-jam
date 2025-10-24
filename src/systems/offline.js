@@ -1,6 +1,6 @@
 // SANCTUARY - Offline Progress
 import { gameState, addSeeds, getBirdById } from '../core/state.js';
-import { calculateForagerIncome, unassignBirdFromCurrentLocation } from './foragers.js';
+import { calculateForagerSlotIncome, unassignBirdFromCurrentLocation } from './foragers.js';
 import { completeBreeding } from './breeding.js';
 import { completeSurvey } from './surveys.js';
 import { GAME_CONFIG, VITALITY_DRAIN_RATE, VITALITY_RESTORE_RATE, SURVEY_COSTS, FORAGER_BASE_RATES, ENERGY_CAPACITY, ENERGY_DRAIN_PER_SECOND, VITALITY_RESTORE_TIME_SECONDS, AUTO_RECOVERY_MULTIPLIER } from '../core/constants.js';
@@ -77,13 +77,16 @@ export function calculateOfflineProgress() {
       if (bird.vitality > 0) {
         // Calculate how long bird was active (before hitting 0 energy)
         const energyDrained = ENERGY_DRAIN_PER_SECOND * secondsAway;
-        const timeUntilDepleted = bird.vitality > energyDrained
+        const timeUntilDepleted = bird.vitality >= energyDrained
           ? secondsAway
           : bird.vitality / ENERGY_DRAIN_PER_SECOND;
 
-        // Calculate income for active time only
-        const income = calculateForagerIncome();
-        totalSeeds += income * timeUntilDepleted;
+        // Calculate income for THIS SPECIFIC forager, for active time only
+        const incomePerSecond = calculateForagerSlotIncome(biome.id, slotIndex, forager.birdId);
+        const seedsEarned = incomePerSecond * timeUntilDepleted;
+        totalSeeds += seedsEarned;
+
+        console.log(`⚡ OFFLINE Forager ${bird.speciesName} in ${biome.id}: worked ${timeUntilDepleted.toFixed(0)}s, earned ${seedsEarned.toFixed(1)} seeds`);
 
         // Drain energy
         bird.vitality = Math.max(0, bird.vitality - energyDrained);
@@ -121,12 +124,19 @@ export function calculateOfflineProgress() {
         }
 
         if (surveyor.vitality > 0) {
-          // Add surveyor's contribution
+          // Calculate how long surveyor was active (before hitting 0 energy)
+          const energyDrained = ENERGY_DRAIN_PER_SECOND * secondsAway;
+          const timeUntilDepleted = surveyor.vitality >= energyDrained
+            ? secondsAway
+            : surveyor.vitality / ENERGY_DRAIN_PER_SECOND;
+
+          // Add surveyor's contribution for active time only
           const contrib = calculateSurveyContribution(biome.id, surveyor);
-          totalContribution += contrib;
+          totalContribution += contrib * timeUntilDepleted;
+
+          console.log(`⚡ OFFLINE Surveyor ${surveyor.speciesName} in ${biome.id}: worked ${timeUntilDepleted.toFixed(0)}s`);
 
           // Drain energy from surveyor
-          const energyDrained = ENERGY_DRAIN_PER_SECOND * secondsAway;
           surveyor.vitality = Math.max(0, surveyor.vitality - energyDrained);
           surveyor.vitalityPercent = (surveyor.vitality / maxEnergy) * 100;
 
@@ -136,12 +146,14 @@ export function calculateOfflineProgress() {
           }
 
           // Also add foragers' contributions (only when surveyor is present)
+          // Note: Foragers already had their energy drained in step 1, so use their current vitality
           biome.foragers.forEach(forager => {
             if (!forager.birdId) return;
             const bird = getBirdById(forager.birdId);
             if (bird && bird.vitality > 0) {
+              // Forager was active for timeUntilDepleted seconds (from step 1)
               const contrib = calculateSurveyContribution(biome.id, bird);
-              totalContribution += contrib;
+              totalContribution += contrib * timeUntilDepleted;
             }
           });
         }
@@ -150,7 +162,7 @@ export function calculateOfflineProgress() {
 
     // Add seeds (without debiting player)
     if (totalContribution > 0) {
-      const seedsAdded = totalContribution * secondsAway;
+      const seedsAdded = totalContribution;
       const oldProgress = biome.survey.progress;
       biome.survey.progress = Math.min(totalCost, biome.survey.progress + seedsAdded);
 

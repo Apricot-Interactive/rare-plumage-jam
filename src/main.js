@@ -11,7 +11,7 @@ import { formatOfflineTime } from './systems/offline.js';
 import { initTutorial, isTutorialActive, getCurrentTutorialStep, TUTORIAL_STEPS } from './systems/tutorial.js';
 
 console.log('SANCTUARY - Initializing...');
-console.log('Version:', GAME_CONFIG.VERSION);
+console.log('Version:', GAME_CONFIG.VERSION); // Active perch system enabled
 
 document.addEventListener('DOMContentLoaded', () => {
   init();

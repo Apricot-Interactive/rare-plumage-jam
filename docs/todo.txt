@@ -1,0 +1,27 @@
+Continue current task.
+
+When I try to assign a parent, don't grey out options that are less than 100% mature. I can always mature them when they are placed. IF there are no "available" birds, then don't grey out the "busy" ones. This will help in the early game and not be likely to occur in the later game. Also when I hover over a bird to assign, it's glow makes it wider prompting a scroll bar to briefly appear in the modal which seems janky, let's prevent that.
+
+Make sure I can't get a 2* from the forest survey until after I click the start breeding button the first time - otherwise I can get a 2* after hatchery unlocks before the first breed and mess up the tutorial flow.
+
+After the "OK that's it from the manual" popup I was seeing a bouncing arrow pointing at parent 1. This should have ended the breeding tutorial not repeated it. Perhaps unrelated I noticed the arrow point to parent 1 in the tutorial earlier (at the right time) and stutter after a fraction of a second, appearing again and then staying in place. Maybe it's being double triggered or queued. If I refresh after the "That's it from the manual" popup the extra arrow at parent 1 disappears.
+
+If I tap a locked biome, it should check if I have enough seeds (ie 4000 for mountain) and if so refresh that UI element so that the "unlock" button appears. Currently I have to swap tabs or refresh after getting enough seeds to see it. Even better, listen for me passing that seed count and make the button appear automatically.
+
+When I have 2-star birds in the three foragers of forest they give +2 +4 +8 per second, and when I tap I get +10 +20 +40. The mountain with 2-stars gives +4 +8 +16 and when clicked +20 +40 +80. This isn't enough of a step up. The rates need to be 4x here not 2x. Is this progression in foragers similarly a problem in other biomes? If so let's update it.
+
+When I have 8 2* birds, the Biome 1 survey becomes inactive and the "survey?" button becomes "2* Full" and tapping it shows a popup saying I have the maximum number of 2* birds and should move on to the next region below.
+
+In addition to the cancel button at the bottom of assigning a bird, I should also be able to click outside the modal and close it as if I had hit cancel.
+
+Somehow I had 4x two stars in two hatcheries, 4x working in survey/forager, 1 resting, and 2 "available" in modals. Maybe hatchery breeding birds aren't being counted as busy? Also they should NOT be able to be reassigned while breeding once the incuator starts. Maybe birds are being double counted somehow else? I should only be able to have 8 and they should only be able to be in one spot at a time.
+
+## TODO
+
+Get some placeholder assets in. Art style: Think detailed, realistic and scientifically accurate birds from a classic ornithological field guide rendered in nostalgic but modern cozy pixel art sprites.
+
+"do next" tip at the top of the sanctuary - tutorial dude like holedown over bottom bar sometimes. Replaces gold glow after a time?
+
+More fun tending to birds on perches. Only one big and 4 small below? Tap to engage? Add more tutorial for this with more engagements?
+
+Build out the attributes system and tie it to the tamagotchi

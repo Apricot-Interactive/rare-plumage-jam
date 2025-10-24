@@ -3,6 +3,30 @@
 
 import { gameState } from '../core/state.js';
 
+// Show a simple toast notification
+export function showToast(message, duration = 2000) {
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+
+  // Add to body
+  document.body.appendChild(toast);
+
+  // Trigger animation
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 10);
+
+  // Remove after duration
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, duration);
+}
+
 // Show a tutorial modal with text
 export function showTutorialModal(text, style = 'normal', onNext = null) {
   const modal = document.getElementById('modal-overlay');
@@ -95,12 +119,26 @@ export function hideTutorialModal() {
   modal.classList.add('hidden');
 }
 
+// Track if modal click handler is attached
+let modalClickHandlerAttached = false;
+
 // Show modal (generic)
-export function showModal(content) {
+export function showModal(content, allowBackdropDismiss = true) {
   const modal = document.getElementById('modal-overlay');
   const modalContent = document.getElementById('modal-content');
   modalContent.innerHTML = content;
   modal.classList.remove('hidden');
+
+  // Add click-outside-to-close functionality (only attach once)
+  if (allowBackdropDismiss && !modalClickHandlerAttached) {
+    modal.addEventListener('click', (e) => {
+      // Only close if clicking the overlay itself, not the content
+      if (e.target === modal) {
+        hideModal();
+      }
+    });
+    modalClickHandlerAttached = true;
+  }
 }
 
 // Hide modal (generic)
